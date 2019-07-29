@@ -12,15 +12,15 @@ import tifffile
 import matplotlib.pyplot as plt
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--img_dir', type=str, default=r'E:\50_plex\tif\pipeline2\IL_corrected', help='path to the directory of images')
-parser.add_argument('--save_dir', type=str, default=r'E:\50_plex\tif\pipeline2\unmixed', help='path to the directory to save unmixed images')
+parser.add_argument('--input_dir', type=str, default=r'E:\50_plex\tif\pipeline2\IL_corrected', help='path to the directory of images')
+parser.add_argument('--output_dir', type=str, default=r'E:\50_plex\tif\pipeline2\unmixed', help='path to the directory to save unmixed images')
 parser.add_argument('--script_file', type=str, default=r'E:\50_plex\tif\pipeline2\unmixed\scripts\supervised.csv', help='script file name')
 parser.add_argument('--default_box', type=str, default='10000_7000_20000_12000', help='xmin_ymin_xmax_ymax')
 parser.add_argument('--visualize', type=bool, default=False, help='plot the unmixing report | True | False')
 args = parser.parse_args()
 
 
-img_dir = args.img_dir
+input_dir = args.input_dir
 
 
 def visualize_results(s, n1, n2, n3, c, name):
@@ -62,21 +62,21 @@ def visualize_results(s, n1, n2, n3, c, name):
 def unmix_channel(src_name, n1_name, n2_name, n3_name, box_info, visualize=False):
 
     # load images
-    source = img_as_float(tifffile.imread(os.path.join(img_dir, src_name)))
+    source = img_as_float(tifffile.imread(os.path.join(input_dir, src_name)))
 
     if str(n1_name) == 'nan':
         noise_1 = np.empty_like(source)
     else:
-        noise_1 = img_as_float(tifffile.imread(os.path.join(img_dir, n1_name)))
+        noise_1 = img_as_float(tifffile.imread(os.path.join(input_dir, n1_name)))
     if str(n2_name) == 'nan':
         noise_2 = np.empty_like(source)
     else:
-        noise_2 = img_as_float(tifffile.imread(os.path.join(img_dir, n2_name)))
+        noise_2 = img_as_float(tifffile.imread(os.path.join(input_dir, n2_name)))
 
     if str(n3_name) == 'nan':
         noise_3 = np.empty_like(source)
     else:
-        noise_3 = img_as_float(tifffile.imread(os.path.join(img_dir, n3_name)))
+        noise_3 = img_as_float(tifffile.imread(os.path.join(input_dir, n3_name)))
 
     xmin = box_info[0]
     ymin = box_info[1]
@@ -156,7 +156,7 @@ def main():
         # if no noise channel is given just rescale the histogram
         if all([x == 'nan' for x in[n1_name, n2_name, n3_name]]):
             # for images without unmixing, just rescale the histogram
-            unmixed_image = tifffile.imread(os.path.join(img_dir, src_name))
+            unmixed_image = tifffile.imread(os.path.join(input_dir, src_name))
         else:
             # read information from box
             box_info = np.empty(4, dtype=int)
@@ -177,7 +177,7 @@ def main():
         adjusted_img = rescale_histogram(unmixed_image)
 
         # save image
-        save_name = os.path.join(args.save_dir, src_name)
+        save_name = os.path.join(args.output_dir, src_name)
         tifffile.imsave(save_name, adjusted_img, bigtiff=True)
 
     df.to_csv(args.script_file, index=False)
