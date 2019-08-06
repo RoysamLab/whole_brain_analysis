@@ -154,7 +154,7 @@ def main():
         print('writing unmixing parameters in {}'.format(os.path.join(args.output_dir, 'unsupervised.csv')))
         if not os.path.exists(args.output_dir):
             os.makedirs(args.output_dir)
-        write_params_to_csv(os.path.join(args.output_dir, 'unsupervised.csv'), alphas, round_files)
+        write_params_to_csv(os.path.join(args.output_dir, 'unmixing_script_unsupervised.csv'), alphas, round_files)
         # save unmixed images
         print('Unmixing images and writing to disk')
         unmix_original_images(rois, images, alphas, round_files)
