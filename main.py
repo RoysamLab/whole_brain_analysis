@@ -7,55 +7,56 @@ import subprocess
 # NAMING PROTOCOL: RxCy (x = round number | y = channel number)
 ###################################################################
 
+INPUT_DIR = r'/project/roysam/datasets/TBI/G3_mFPI_Vehicle/G3_BR#10_HC_12L/original'
+OUTPUT_DIR = r'/project/roysam/datasets/TBI/G3_mFPI_Vehicle/G3_BR#10_HC_12L'
+
 
 # REGISTRATION
-input_dir = r'/brazos/roysam/asingh42/DashData_Raw/G3_mFPI_Vehicle/G3_BR#14_HC_11L'
-output_dir = r'/project/roysam/datasets/TBI/G2_mFPI_Vehicle/G3_BR#14_HC_11L'
-command = """python 1_PREPROCESSING/registration_multiRds.py \
-             --input_dir={0} \
-             --output_dir={1} \
-             --maxtrials=100 \
-             --tiling="800,1600" \
-             --imadjust=True \
-             --demo=False \
-             -nk 100000 \
-           """.format(input_dir, output_dir)
+input_dir = INPUT_DIR
+output_dir = os.path.join(OUTPUT_DIR, 'registered')
+command = ' '.join([r"python 1_PREPROCESSING/registration.py",
+                   "--input_dir={}".format(input_dir),
+                   "--output_dir={}".format(output_dir),
+                   "--maxtrials=100",
+                   "--tiling='400,800'",
+                   "--imadjust=True",
+                   "--demo=True",
+                   "-nk 20000"])
 start = time.time()
-p = subprocess.call(command)
+p = subprocess.call(command, shell=True)
 print('Registration pipeline finished successfully in {:.2f} seconds.'.format(time.time() - start))
 
 # INTRA-CHANNEL CORRECTION
-input_dir = r'E:\jahandar\DashData\Injury\original'
-output_dir = r'E:\jahandar\DashData\Injury\IL_corrected'
+input_dir = os.path.join(OUTPUT_DIR, 'registered')
+output_dir = os.path.join(OUTPUT_DIR, 'IL_corrected')
 disk_size = [20, 40]
-command = """matlab -minimize -nosplash -nodesktop -wait -r "intra_channel_correction('{}','{}',{}); quit"\
-          """.format(input_dir, output_dir, disk_size)
+command = ' '.join(["matlab -nosplash -nodesktop -r",
+                    "\"addpath(fullfile(pwd, '1_PREPROCESSING'));",
+                    "intra_channel_correction('{}','{}',{}); quit\"".format(input_dir, output_dir, disk_size)])
 start = time.time()
-p = subprocess.call(command)
+p = subprocess.call(command, shell=True)
 print('Intra-channel fluorescence correction pipeline finished successfully in {:.2f} seconds.'.format(time.time() - start))
 
 # INTRA-CHANNEL CORRECTION UNSUPERVISED
-
-input_dir = r'E:\jahandar\DashData\Injury\IL_corrected'
-output_dir = r'E:\jahandar\DashData\Injury\unmixed'
+input_dir = os.path.join(OUTPUT_DIR, 'IL_corrected')
+output_dir = os.path.join(OUTPUT_DIR, 'unmixed')
 brightfield = 11
-command = """python 1_PREPROCESSING/inter_channel_correction_unsupervised.py \
-             --input_dir {0} \
-             --output_dir {1} \
-             --brightfield {2} \
-          """.format(input_dir, output_dir, brightfield)
+command = ' '.join(["python 1_PREPROCESSING/inter_channel_correction_unsupervised.py",
+                    "--input_dir={}".format(input_dir),
+                    "--output_dir={}".format(output_dir),
+                    "--brightfield={}".format(brightfield)])
 p = subprocess.call(command)
 print('Inter-channel fluorescence correction pipeline finished successfully in {:.2f} seconds.'.format(time.time() - start))
 
-# INTER-CHANNEL CORRECTION SUPERVISED
-input_dir = r'E:\jahandar\DashData\Injury\IL_corrected'
-output_dir = r'E:\jahandar\DashData\Injury\unmixed'
-script = r'E:\jahandar\DashData\Injury\unmixed\supervised.csv'
-command = """python inter_channel_correction_supervised.py \
-             --input_dir {0} \
-             --output_dir {1} \
-             --script_file {2} """.format(input_dir, output_dir, script)
-p = subprocess.call(command)
-print('Inter-channel fluorescence correction pipeline finished successfully in {:.2f} seconds.'.format(time.time() - start))
+# # INTER-CHANNEL CORRECTION SUPERVISED
+# input_dir = os.path.join(OUTPUT_DIR, 'IL_corrected')
+# output_dir = os.path.join(OUTPUT_DIR, 'final')
+# script = os.path.join(OUTPUT_DIR, 'unmixing_script_supervised.csv')
+# command = ' '.join(["python inter_channel_correction_supervised.py",
+#                     "--input_dir={}".format(input_dir),
+#                     "--output_dir={}".format(output_dir),
+#                     "--script_file={}".format(script)])
+# p = subprocess.call(command)
+# print('Inter-channel fluorescence correction pipeline finished successfully in {:.2f} seconds.'.format(time.time() - start))
 
 # DETECTION
