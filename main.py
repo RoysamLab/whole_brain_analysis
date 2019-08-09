@@ -7,8 +7,8 @@ import subprocess
 # NAMING PROTOCOL: RxCy (x = round number | y = channel number)
 ###################################################################
 
-INPUT_DIR = r'E:\jahandar\DashData\G3_BR#15_HC_12L\original'
-OUTPUT_DIR = r'E:\jahandar\DashData\G3_BR#15_HC_12L'
+INPUT_DIR = r'/brazos/roysam/datasets/TBI/G3_mFPI_Vehicle/G3_BR#10_HC_12L/original'
+OUTPUT_DIR = r'/brazos/roysam/datasets/TBI/G3_mFPI_Vehicle/G3_BR#10_HC_12L'
 BRIGHTFIELD = 11
 
 
@@ -39,8 +39,8 @@ p = subprocess.call(command, shell=True)
 print('Registration pipeline finished successfully in {:.2f} seconds.'.format(time.time() - start))
 
 
-# INTRA-CHANNEL CORRECTION UNSUPERVISED
-input_dir = os.path.join(OUTPUT_DIR, 'IL_corrected')
+# INTER-CHANNEL CORRECTION UNSUPERVISED
+input_dir = os.path.join(OUTPUT_DIR, 'registered')
 output_dir = os.path.join(OUTPUT_DIR, 'unmixed')
 command = ' '.join(["python 1_PREPROCESSING/inter_channel_correction_unsupervised.py",
                     "--input_dir={}".format(input_dir),
@@ -50,7 +50,7 @@ p = subprocess.call(command, shell=True)
 print('Inter-channel fluorescence correction pipeline finished successfully in {:.2f} seconds.'.format(time.time() - start))
 
 # # INTER-CHANNEL CORRECTION SUPERVISED
-# input_dir = os.path.join(OUTPUT_DIR, 'IL_corrected')
+# input_dir = os.path.join(OUTPUT_DIR, 'registered')
 # output_dir = os.path.join(OUTPUT_DIR, 'final')
 # script = os.path.join(OUTPUT_DIR, 'unmixing_script_supervised.csv')
 # command = ' '.join(["python inter_channel_correction_supervised.py",
