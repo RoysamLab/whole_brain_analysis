@@ -8,8 +8,9 @@ import subprocess
 ###################################################################
 
 INPUT_DIR = r'E:\jahandar\DashData\G3_BR#15_HC_12L\original'
-OUTPUT_DIR = r'E:\jahandar\DashData\G3_BR#15_HC_12L'
+OUTPUT_DIR = r'E:\jahandar\DashData\G3_BR#15_HC_12L\supervised'
 BRIGHTFIELD = 11
+SCRIPT = r'E:\jahandar\DashData\G3_BR#15_HC_12L\script.csv'
 
 # REGISTRATION
 input_dir = INPUT_DIR
@@ -47,3 +48,16 @@ command = ' '.join(["python 1_PREPROCESSING/inter_channel_correction_unsupervise
 start = time.time()
 p = subprocess.call(command, shell=True)
 print('Inter-channel fluorescence correction pipeline finished successfully in {:.2f} seconds.'.format(time.time() - start))
+
+# # INTER-CHANNEL CORRECTION SUPERVISED
+# input_dir = os.path.join(OUTPUT_DIR, 'registered')
+# output_dir = os.path.join(OUTPUT_DIR, 'final')
+# script = os.path.join(OUTPUT_DIR, 'unmixing_script_supervised.csv')
+# command = ' '.join(["python inter_channel_correction_supervised.py",
+#                     "--input_dir={}".format(input_dir),
+#                     "--output_dir={}".format(output_dir),
+#                     "--script_file={}".format(script)])
+# p = subprocess.call(command)
+# print('Inter-channel fluorescence correction pipeline finished successfully in {:.2f} seconds.'.format(time.time() - start))
+
+# DETECTION
