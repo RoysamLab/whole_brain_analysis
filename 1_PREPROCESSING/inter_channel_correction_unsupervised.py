@@ -12,8 +12,8 @@ import matplotlib.pyplot as plt
 from sklearn import linear_model
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--input_dir', type=str, default=r'E:\jahandar\DashData\Injury\IL_corrected', help='path to the directory of input images')
-parser.add_argument('--output_dir', type=str, default=r'E:\jahandar\DashData\Injury\unmixed', help='path to the directory to save unmixed images')
+parser.add_argument('--input_dir', type=str, default=r'E:\jahandar\DashData\G3_BR#15_HC_12L\IL_corrected', help='path to the directory of input images')
+parser.add_argument('--output_dir', type=str, default=r'E:\jahandar\DashData\G3_BR#15_HC_12L\unmixed', help='path to the directory to save unmixed images')
 parser.add_argument('--brightfield', type=int, help='Channel number for brightfield')
 parser.add_argument('--default_box', type=str, default='2000_4000_15000_13000', help='xmin_ymin_xmax_ymax')
 parser.add_argument('--round_pattern', type=str, default='R', help='pattern for round idx')
@@ -46,7 +46,7 @@ def get_unmixing_params(images):
     return results
 
 
-def write_params_to_csv(filename, alphas, round_files):
+def write_params_to_csv(script, filename, alphas, round_files):
 
     def append_nones(length, list_):
         """
@@ -77,18 +77,11 @@ def write_params_to_csv(filename, alphas, round_files):
         else:
             script_rows_str[row_idx] = [None] * 3
 
-    df = pd.DataFrame(script_rows_str, columns=['channel_1', 'channel_2', 'channel_3'], index=round_files)
-    df = df.reindex(columns=df.columns.tolist() + ['xmin', 'ymin', 'xmax', 'ymax'])
-    df.index.name = 'filename'
+    # update script with unmixed channels
+    script.loc[round_files, ['channel_1', 'channel_2', 'channel_3']] = script_rows_str
 
-    # save df to csv file or update existing one
-    if os.path.isfile(filename):
-        old_df = pd.read_csv(filename, index_col='filename')
-        new_df = pd.concat([old_df, df], axis=0)
-        new_df.to_csv(filename)
-    else:
-        df.to_csv(filename)
-
+    # save script to disk
+    script.to_csv(filename)
 
 def unmix_original_images(rois, images, alphas, names):
     for roi, image, alpha, name in zip(rois, images, alphas, names):
@@ -118,7 +111,11 @@ def unmix_original_images(rois, images, alphas, names):
 
 
 def main():
-    files = [f for f in os.listdir(input_dir) if os.path.isfile(os.path.join(input_dir, f))]
+
+    # read script from intra channel correction module
+    script = pd.read_csv(os.path.join(input_dir, 'script.csv'), index_col='filename')
+    script = script.reindex(columns=[*script.columns.tolist(), *['channel_1', 'channel_2', 'channel_3']])
+    files = script.index.values
 
     # find how many rounds and channels we have
     rounds = sorted(list(set([int(re.compile(args.round_pattern + '(\d+)').findall(file)[0]) for file in files])))
@@ -142,6 +139,7 @@ def main():
         # read images
         print('Reading images.')
         for filename in round_files:
+            #TODO: switch to skimage.io.imread_collection
             # read image and append to list
             image = img_as_float(tifffile.imread(os.path.join(input_dir, filename)))
             images.append(image)
@@ -154,7 +152,8 @@ def main():
         print('writing unmixing parameters in {}'.format(os.path.join(args.output_dir, 'unmixing_script_unsupervised.csv')))
         if not os.path.exists(args.output_dir):
             os.makedirs(args.output_dir)
-        write_params_to_csv(os.path.join(args.output_dir, 'unmixing_script_unsupervised.csv'), alphas, round_files)
+        write_params_to_csv(script, os.path.join(args.output_dir, 'script.csv'),
+                            alphas, round_files)
         # save unmixed images
         print('Unmixing images and writing to disk')
         unmix_original_images(rois, images, alphas, round_files)
@@ -173,4 +172,3 @@ if __name__ == '__main__':
 
 
     # TODO: script is fixed with size of 3 endmembers -> np.count_nonzero(alphas)
-    # TODO: add brightfiled channel number to args
