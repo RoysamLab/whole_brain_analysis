@@ -18,7 +18,7 @@ output_dir = os.path.join(OUTPUT_DIR, 'IL_corrected')
 disk_size = [20, 40]
 command = ' '.join(["matlab -nojvm -nosplash -nodesktop -wait -r",
                     "\"addpath(fullfile(pwd, '1_PREPROCESSING'));",
-                    "intra_channel_correction('{}','{}',{}, {}, {}); quit\"".format(input_dir, output_dir, disk_size,
+                    "intra_channel_correction('{}','{}',{}, {}, '{}'); quit\"".format(input_dir, output_dir, disk_size,
                                                                                     BRIGHTFIELD, SCRIPT)])
 start = time.time()
 p = subprocess.call(command, shell=True)
