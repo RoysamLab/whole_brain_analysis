@@ -586,3 +586,4 @@ if __name__ == '__main__':
 #TODO: add target round as input argument --target_round=2
 #TODO: add channel patterns as input argument --channel_pattern=C1.tif
 #TODO: add option to register specific channels: source_round_ls
+#TODO: matlab cannot read saved images... byte missmatch
