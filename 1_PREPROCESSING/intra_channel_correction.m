@@ -3,7 +3,7 @@ function errors = intra_channel_correction(input_dir, output_dir, varargin)
 % intra_channel_correction function corrects the images in 'input_dir' and
 % save them in 'output_dir'. This function corrects for AUTOFLUORESCENCE,
 % NON-UNIFORM ILLUMINATION, PHOTOBLEACHING, IMAGE ARTIFACTS.
-% This function save a script for corrected channels in 'output_dir'
+% This function save a script for corrected channels in the parent folder of 'output_dir'
 % Input arguments:
 % input_dir: /path/to/input/directory
 % output_dir: /path/to/output/directory
@@ -69,7 +69,9 @@ write_bigtiff(im, fullfile(output_dir, script_table.filename{i}));
 
 end
 
-writetable(script_table, fullfile(output_dir,'script.csv'), ...
+% save script in parent directory
+[parentdir,~,~]=fileparts(output_dir);
+writetable(script_table, fullfile(parentdir,'script.csv'), ...
            'Delimiter',',');
 
 % no error... 

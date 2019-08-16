@@ -148,11 +148,14 @@ def main():
         # find unmixing params from ROIs
         print('Calculating unmixing parameters from ROIs.')
         alphas = get_unmixing_params(rois)
+
         # create folder and save unmixing parameters into csv file
         print('writing unmixing parameters in {}'.format(os.path.join(args.output_dir, 'unmixing_script_unsupervised.csv')))
         if not os.path.exists(args.output_dir):
             os.makedirs(args.output_dir)
-        write_params_to_csv(script, os.path.join(args.output_dir, 'script.csv'),
+        # save parameters in the parent directory
+        parentdir = os.path.dirname(args.output_dir)
+        write_params_to_csv(script, os.path.join(parentdir, 'script.csv'),
                             alphas, round_files)
         # save unmixed images
         print('Unmixing images and writing to disk')
