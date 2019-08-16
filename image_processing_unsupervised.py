@@ -11,8 +11,19 @@ INPUT_DIR = r'E:\jahandar\DashData\G3_BR#15_HC_12L\original'
 OUTPUT_DIR = r'E:\jahandar\DashData\G3_BR#15_HC_12L'
 BRIGHTFIELD = 11
 
-# REGISTRATION
+# INTRA-CHANNEL CORRECTION
 input_dir = INPUT_DIR
+output_dir = os.path.join(OUTPUT_DIR, 'IL_corrected')
+disk_size = [20, 40]
+command = ' '.join(["matlab -nojvm -nosplash -nodesktop -wait -r",
+                    "\"addpath(fullfile(pwd, '1_PREPROCESSING'));",
+                    "intra_channel_correction('{}','{}',{}, {}); quit\"".format(input_dir, output_dir, disk_size, BRIGHTFIELD)])
+start = time.time()
+p = subprocess.call(command, shell=True)
+print('Intra-channel fluorescence correction pipeline finished successfully in {:.2f} seconds.'.format(time.time() - start))
+
+# REGISTRATION
+input_dir = os.path.join(OUTPUT_DIR, 'IL_corrected')
 output_dir = os.path.join(OUTPUT_DIR, 'registered')
 command = ' '.join([r"python 1_PREPROCESSING/registration.py",
                    "--input_dir={}".format(input_dir),
@@ -26,19 +37,8 @@ start = time.time()
 p = subprocess.call(command, shell=True)
 print('Registration pipeline finished successfully in {:.2f} seconds.'.format(time.time() - start))
 
-# INTRA-CHANNEL CORRECTION
-input_dir = os.path.join(OUTPUT_DIR, 'registered')
-output_dir = os.path.join(OUTPUT_DIR, 'IL_corrected')
-disk_size = [20, 40]
-command = ' '.join(["matlab -nojvm -nosplash -nodesktop -wait -r",
-                    "\"addpath(fullfile(pwd, '1_PREPROCESSING'));",
-                    "intra_channel_correction('{}','{}',{}, {}); quit\"".format(input_dir, output_dir, disk_size, BRIGHTFIELD)])
-start = time.time()
-p = subprocess.call(command, shell=True)
-print('Intra-channel fluorescence correction pipeline finished successfully in {:.2f} seconds.'.format(time.time() - start))
-
 # INTER-CHANNEL CORRECTION UNSUPERVISED
-input_dir = os.path.join(OUTPUT_DIR, 'IL_corrected')
+input_dir = os.path.join(OUTPUT_DIR, 'registered')
 output_dir = os.path.join(OUTPUT_DIR, 'unmixed')
 command = ' '.join(["python 1_PREPROCESSING/inter_channel_correction_unsupervised.py",
                     "--input_dir={}".format(input_dir),
