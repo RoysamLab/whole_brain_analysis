@@ -113,7 +113,8 @@ def unmix_original_images(rois, images, alphas, names):
 def main():
 
     # read script from intra channel correction module
-    script = pd.read_csv(os.path.join(input_dir, 'script.csv'), index_col='filename')
+    parentdir = os.path.dirname(args.output_dir)
+    script = pd.read_csv(os.path.join(parentdir, 'script.csv'), index_col='filename')
     script = script.reindex(columns=[*script.columns.tolist(), *['channel_1', 'channel_2', 'channel_3']])
     files = script.index.values
 
@@ -154,7 +155,6 @@ def main():
         if not os.path.exists(args.output_dir):
             os.makedirs(args.output_dir)
         # save parameters in the parent directory
-        parentdir = os.path.dirname(args.output_dir)
         write_params_to_csv(script, os.path.join(parentdir, 'script.csv'),
                             alphas, round_files)
         # save unmixed images
