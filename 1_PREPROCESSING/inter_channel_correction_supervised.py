@@ -132,6 +132,9 @@ def rescale_histogram(image):
 
 
 def main():
+    # create output directory
+    if not os.path.exists(args.output_dir):
+        os.makedirs(args.output_dir)
 
     default_box = list(map(int, args.default_box.split('_')))
 
