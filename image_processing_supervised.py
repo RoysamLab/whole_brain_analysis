@@ -47,5 +47,6 @@ command = ' '.join(["python 1_PREPROCESSING/inter_channel_correction_supervised.
                     "--input_dir={}".format(input_dir),
                     "--output_dir={}".format(output_dir),
                     "--script_file={}".format(script)])
-p = subprocess.call(command)
+start = time.time()
+p = subprocess.call(command, shell=True)
 print('Inter-channel fluorescence correction pipeline finished successfully in {:.2f} seconds.'.format(time.time() - start))
