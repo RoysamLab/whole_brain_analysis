@@ -26,7 +26,7 @@ class DataLoader(object):
         for i in range(config.channel):
             filename = getattr(config, 'c{}'.format(i+1))
             if filename is not None:
-                image_filenames.append(os.path.join(config.ipnut_dir, filename))
+                image_filenames.append(os.path.join(config.input_dir, filename))
 
         if len(image_filenames) != 0:
             self.image = read_image_from_filenames(image_filenames, to_ubyte=False)
