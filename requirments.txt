@@ -1,0 +1,10 @@
+Cython
+numpy
+scipy
+scikit-image
+pandas
+progressbar2
+matplotlib
+tensorflow==1.9
+tifffile
+git+https://github.com/philferriere/cocoapi.git#egg=pycocotools&subdirectory=PythonAPI
