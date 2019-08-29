@@ -70,4 +70,7 @@ command = ' '.join([r"python 2_DETECTION/main.py",
                     "--c2={}".format(os.path.join(INPUT_DIR, channels['Histones']))])
 start = time.time()
 p = subprocess.call(command, shell=True)
-print('Detection pipeline finished successfully in {:.2f} seconds.'.format(time.time() - start))
+duration = time.time() - start
+m, s = divmod(int(duration), 60)
+h, m = divmod(m, 60)
+print('Detection pipeline finished successfully in {:d} hours, {:d} minutes and {:d} seconds.'.format(h, m, s))
