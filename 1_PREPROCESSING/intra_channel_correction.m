@@ -69,10 +69,11 @@ write_bigtiff(im, fullfile(output_dir, script_table.filename{i}));
 
 end
 
-% save script in parent directory
-[parentdir,~,~]=fileparts(output_dir);
-writetable(script_table, fullfile(parentdir,'script.csv'), ...
-           'Delimiter',',');
+% save script in parent directory if unsupervised (no script input)
+if nargin ~= 5
+    [parentdir,~,~]=fileparts(output_dir);
+    writetable(script_table, fullfile(parentdir,'script.csv'), ...
+               'Delimiter',',');
 
 % no error... 
 errors = 0;
