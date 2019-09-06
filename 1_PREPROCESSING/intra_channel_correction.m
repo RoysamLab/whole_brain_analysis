@@ -74,6 +74,7 @@ if nargin ~= 5
     [parentdir,~,~]=fileparts(output_dir);
     writetable(script_table, fullfile(parentdir,'script.csv'), ...
                'Delimiter',',');
+end
 
 % no error... 
 errors = 0;
