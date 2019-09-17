@@ -9,6 +9,10 @@ def create_script(script_name, input_dir, crop_position, brightfield=None):
     :param crop_position: list of ['xmin', 'ymin', 'xmax', 'ymax'] crop position for inter channel parameter estimation
     :param brightfield: number of the brightfile channel
     """
+    # create output directory
+    if not os.path.exists(os.path.dirname(script_name)):
+        os.makedirs(os.path.dirname(script_name))
+
     # list all files in the input directory
     files = os.listdir(input_dir)
     # get only images in the directory
