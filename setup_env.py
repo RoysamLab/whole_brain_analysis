@@ -16,6 +16,7 @@ cmds = ['conda activate brain',
         'pip install "git+https://github.com/philferriere/cocoapi.git#egg=pycocotools&subdirectory=PythonAPI"',
         'pip install progressbar2',
         'pip install requests',
+        'pip install opencv-python'
         'conda deactivate']
 subprocess.call(' && '.join(cmds), shell=True)
 
