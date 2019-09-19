@@ -156,7 +156,7 @@ def inter_channel_correct_supervised(input_dir, output_dir, script_file):
         source = rescale_histogram(source)
 
         # save image
-        save_name = os.path.join(args.output_dir, src_name)
+        save_name = os.path.join(output_dir, src_name)
         tifffile.imsave(save_name, source, bigtiff=True)
 
         bar.update(idx)
@@ -226,7 +226,7 @@ def inter_channel_correct_unsupervised(input_dir, output_dir, script_file):
             source = rescale_histogram(source)
 
             # save image
-            save_name = os.path.join(args.output_dir, filename)
+            save_name = os.path.join(output_dir, filename)
             tifffile.imsave(save_name, source, bigtiff=True)
 
 
