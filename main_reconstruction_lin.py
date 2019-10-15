@@ -1,5 +1,6 @@
 import os
 import time
+import argparse
 import subprocess
 
 ###################################################################
@@ -7,27 +8,32 @@ import subprocess
 ###################################################################
 
 
-INPUT_DIR = r'/brazos/roysam/datasets/TBI/G4_mFPI_Li+VPA/G4_BR#19_HC_12R/original'
-OUTPUT_DIR = r'/brazos/roysam/datasets/TBI/G4_mFPI_Li+VPA/G4_BR#19_HC_12R'
-MODE = 'supervised'
+parser = argparse.ArgumentParser()
+parser.add_argument('--INPUT_DIR', type=str, default=r'/path/to/input/dir', help='/path/to/input/dir')
+parser.add_argument('--OUTPUT_DIR', type=str, default=r'/path/to/output/dir', help='/path/to/output/dir')
+parser.add_argument('--MODE', type=str, default=r'unsupervised', help='supervised | unsupervised')
+args, _ = parser.parse_known_args()
 
 # for supervised
-SCRIPT = r'scripts/20_plex.csv'
+if args.MODE == 'supervised':
+    parser.add_argument('--SCRIPT', type=str, default=r'scripts/20_plex.csv', help='/path/to/script.csv')
 
 # for unsupervised
-DEFAULT_CROP = [34000, 8000, 44000, 15000]
-BRIGHTFIELD = 11
+if args.MODE == 'unsupervised':
+    parser.add_argument('--DEFAULT_CROP', type=int, nargs='+', default=[34000, 8000, 44000, 15000], help='[xmin, ymin, xmax, ymax]')
+    parser.add_argument('--BRIGHTFIELD', type=int, default=None, help='int | None')
 
-
-# create script if not specified
-if MODE is 'unsupervised':
+    # create script if not specified
     from RECONSTRUCTION.prepare_script import create_script
-    create_script(os.path.join(OUTPUT_DIR, 'script.csv'), INPUT_DIR, DEFAULT_CROP, brightfield=BRIGHTFIELD)
-    SCRIPT = os.path.join(OUTPUT_DIR, 'script.csv')
+    create_script(os.path.join(args.OUTPUT_DIR, 'script.csv'), args.INPUT_DIR, args.DEFAULT_CROP, brightfield=args.BRIGHTFIELD)
+    parser.add_argument('--SCRIPT', type=str, default=os.path.join(args.OUTPUT_DIR, 'script.csv'), help='/path/to/script.csv')
 
-# REGSITRATION
-input_dir = INPUT_DIR
-output_dir = os.path.join(OUTPUT_DIR, 'registered')
+args = parser.parse_args()
+
+
+# REGISTRATION
+input_dir = args.INPUT_DIR
+output_dir = os.path.join(args.OUTPUT_DIR, 'registered')
 command = ' '.join([r"python RECONSTRUCTION/registration.py",
                     "--input_dir={}".format(input_dir),
                     "--output_dir={}".format(output_dir),
@@ -46,11 +52,11 @@ print('Registration pipeline finished successfully in {:d} hours, {:d} minutes a
 
 # INTRA CHANNEL CORRECTION
 from RECONSTRUCTION.intra_channel_correction import intra_channel_correct
-ipnut_dir = os.path.join(OUTPUT_DIR, 'registered')
-output_dir = os.path.join(OUTPUT_DIR, 'intra_corrected')
+ipnut_dir = os.path.join(args.OUTPUT_DIR, 'registered')
+output_dir = os.path.join(args.OUTPUT_DIR, 'intra_corrected')
 disk_size = [40, 80]
 start = time.time()
-intra_channel_correct(ipnut_dir, output_dir, disk_size, SCRIPT)
+intra_channel_correct(ipnut_dir, output_dir, disk_size, args.SCRIPT)
 duration = time.time() - start
 m, s = divmod(int(duration), 60)
 h, m = divmod(m, 60)
@@ -58,15 +64,15 @@ print('Intra channel correction finished successfully in {:d} hours, {:d} minute
 
 
 # INTER CHANNEL CORRECTION
-input_dir = os.path.join(OUTPUT_DIR, 'intra_corrected')
-output_dir = os.path.join(OUTPUT_DIR, 'inter_corrected')
+input_dir = os.path.join(args.OUTPUT_DIR, 'intra_corrected')
+output_dir = os.path.join(args.OUTPUT_DIR, 'inter_corrected')
 start = time.time()
-if MODE == 'unsupervised':
+if args.MODE == 'unsupervised':
     from RECONSTRUCTION.inter_channel_correction import inter_channel_correct_unsupervised
-    inter_channel_correct_unsupervised(input_dir, output_dir, SCRIPT)
-elif MODE == 'supervised':
+    inter_channel_correct_unsupervised(input_dir, output_dir, args.SCRIPT)
+elif args.MODE == 'supervised':
     from RECONSTRUCTION.inter_channel_correction import inter_channel_correct_supervised
-    inter_channel_correct_supervised(input_dir, output_dir, SCRIPT)
+    inter_channel_correct_supervised(input_dir, output_dir, args.SCRIPT)
 duration = time.time() - start
 m, s = divmod(int(duration), 60)
 h, m = divmod(m, 60)

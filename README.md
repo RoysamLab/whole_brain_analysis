@@ -5,7 +5,25 @@
 
     __Notice__: You need __Matlab__ for windows.
 
-2. In the `main_reconstruction_*.py` file specify:
+2. Parse the arguments to  `main_reconstruction_*.py`:
+  ```bash
+  python main_reconstruction_lin.py \
+       --INPUT_DIR=/brazos/roysam/datasets/TBI/G2_Sham_Trained/G2_BR#22_HC_13L/original \
+       --OUTPUT_DIR=/brazos/roysam/datasets/TBI/G2_Sham_Trained/G2_BR#22_HC_13L \
+       --MODE=supervised \
+       --SCRIPT=scripts/20_plex
+  ```
+
+  ```bash
+  python main_reconstruction_lin.py \
+       --INPUT_DIR=/brazos/roysam/datasets/TBI/G2_Sham_Trained/G2_BR#22_HC_13L/original \
+       --OUTPUT_DIR=/brazos/roysam/datasets/TBI/G2_Sham_Trained/G2_BR#22_HC_13L \
+       --MODE=unsupervised \
+       --DEFAULT_BOX=[34000, 8000, 44000, 15000] \
+       --BRIGHTFIELD=11
+  ```
+
+  __Arguments:__
   - `INPUT_DIR` : Path to the directory containing input images
   - `OUTPUT_DIR` : Path to the directory saving output images
   - `MODE`: `supervised` or `unsupervised`
