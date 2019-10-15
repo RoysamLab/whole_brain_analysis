@@ -1,7 +1,7 @@
 #!/bin/bash
 
-#SBATCH -J G3_14_det 
-#SBATCH -o G3_14_det
+#SBATCH -J G2_BR_22 
+#SBATCH -o G2_BR_22
 #SBATCH -t 24:00:00
 #SBATCH -N 1 -n 28
 #SBATCH -p gpu
@@ -12,6 +12,6 @@
 module load CUDA/.10.0.130
 module load cuDNN/7.5.0-CUDA-10.0.130
 
-source activate /brazos/roysam/shared/miniconda/envs/tf
+source activate /brazos/roysam/shared/miniconda/envs/brain
 
 python main_detection.py
