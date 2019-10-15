@@ -7,8 +7,8 @@ import subprocess
 ###################################################################
 
 
-INPUT_DIR = r'/brazos/roysam/datasets/TBI/G4_mFPI_Li+VPA/G4_BR#11_HC_11L/original'
-OUTPUT_DIR = r'/brazos/roysam/datasets/TBI/G4_mFPI_Li+VPA/G4_BR#11_HC_11L'
+INPUT_DIR = r'/brazos/roysam/datasets/TBI/G4_mFPI_Li+VPA/G4_BR#19_HC_12R/original'
+OUTPUT_DIR = r'/brazos/roysam/datasets/TBI/G4_mFPI_Li+VPA/G4_BR#19_HC_12R'
 MODE = 'supervised'
 
 # for supervised
@@ -23,6 +23,7 @@ BRIGHTFIELD = 11
 if MODE is 'unsupervised':
     from RECONSTRUCTION.prepare_script import create_script
     create_script(os.path.join(OUTPUT_DIR, 'script.csv'), INPUT_DIR, DEFAULT_CROP, brightfield=BRIGHTFIELD)
+    SCRIPT = os.path.join(OUTPUT_DIR, 'script.csv')
 
 # REGSITRATION
 input_dir = INPUT_DIR
@@ -62,7 +63,7 @@ output_dir = os.path.join(OUTPUT_DIR, 'inter_corrected')
 start = time.time()
 if MODE == 'unsupervised':
     from RECONSTRUCTION.inter_channel_correction import inter_channel_correct_unsupervised
-    inter_channel_correct_unsupervised(input_dir, output_dir, os.path.join(OUTPUT_DIR, 'script.csv'))
+    inter_channel_correct_unsupervised(input_dir, output_dir, SCRIPT)
 elif MODE == 'supervised':
     from RECONSTRUCTION.inter_channel_correction import inter_channel_correct_supervised
     inter_channel_correct_supervised(input_dir, output_dir, SCRIPT)
