@@ -12,6 +12,10 @@
 module load CUDA/.10.0.130
 module load cuDNN/7.5.0-CUDA-10.0.130
 
+module load Anaconda3
 source activate /brazos/roysam/shared/miniconda/envs/brain
 
-python main_detection.py
+python main_detection.py \
+       --INPUT_DIR=/brazos/roysam/datasets/TBI/G2_Sham_Trained/G2_BR#22_HC_13L/original \
+       --OUTPUT_DIR=/brazos/roysam/datasets/TBI/G2_Sham_Trained/G2_BR#22_HC_13L/detection_results \
+       --DAPI=R2C1.tif \

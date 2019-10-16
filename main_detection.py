@@ -1,18 +1,25 @@
 import os
+import sys
 import time
-import subprocess
-import requests
 import zipfile
+import argparse
+import requests
 
-INPUT_DIR = r'/brazos/roysam/datasets/TBI/G3_mFPI_Vehicle/G3_BR#10_HC_12L/unsupervised/unmixed'
-OUTPUT_DIR = r'/brazos/roysam/datasets/TBI/G3_mFPI_Vehicle/G3_BR#10_HC_12L/unsupervised/detection_results'
-channels = {'DAPI': 'R2C1.tif', 'Histones': ''}
+parser = argparse.ArgumentParser()
+parser.add_argument('--INPUT_DIR', type=str, default=r'/path/to/input/dir', help='/path/to/input/dir')
+parser.add_argument('--OUTPUT_DIR', type=str, default=r'/path/to/output/dir', help='/path/to/output/dir')
+parser.add_argument('--DAPI', type=str, default='', help='/path/to/dapi.tif | None')
+parser.add_argument('--HISTONES', type=str, default='', help='/path/to/dapi.tif | None')
 
-# Add object_detection and slim folders to PYTHONPATH
-if os.environ.get("PYTHONPATH") is None:
-    os.environ["PYTHONPATH"] = ''
-os.environ["PYTHONPATH"] += os.pathsep + os.path.join(os.getcwd(), '2_DETECTION', 'lib')
-os.environ["PYTHONPATH"] += os.pathsep + os.path.join(os.getcwd(), '2_DETECTION', 'lib', 'slim')
+args = parser.parse_args()
+
+channels = {'DAPI': args.DAPI, 'Histones': args.HISTONES}
+
+# Add object_detection and slim folders to PATH
+sys.path.append(os.path.join(os.getcwd(), 'DETECTION'))
+sys.path.append(os.path.join(os.getcwd(), 'DETECTION', 'lib'))
+sys.path.append(os.path.join(os.getcwd(), 'DETECTION', 'lib', 'slim'))
+
 
 # DOWNLOAD PRE-TRAINED MODELS
 def download_and_extract_models(id, destination):
@@ -50,26 +57,30 @@ def download_and_extract_models(id, destination):
 
 
 file_id = '1xvkkOij38YCO2_tVm5qAs4Xup1zoWrwC'
-target_dir = '2_DETECTION/models'
+target_dir = 'DETECTION/models'
 if not os.path.exists(target_dir):
     download_and_extract_models(file_id, target_dir)
 
 # DETECTION
 num_channels = len([k for k, v in channels.items() if v])
 model = '_'.join([k for k, v in channels.items() if v]).lower()
-config_path = os.path.join('2_DETECTION/models', model, 'pipeline_config.config')
-trained_checkpoint = os.path.join('2_DETECTION/models', model, 'model.ckpt')
-command = ' '.join([r"python 2_DETECTION/main.py",
-                    "--mode=test",
-                    "--pipeline_config_path={}".format(config_path),
-                    "--trained_checkpoint={}".format(trained_checkpoint),
-                    "--input_dir={}".format(INPUT_DIR),
-                    "--output_dir={}".format(OUTPUT_DIR),
-                    "--channel={}".format(num_channels),
-                    "--c1={}".format(os.path.join(INPUT_DIR, channels['DAPI'])),
-                    "--c2={}".format(os.path.join(INPUT_DIR, channels['Histones']))])
+config_path = os.path.join('DETECTION', 'models', model, 'pipeline_config.config')
+trained_checkpoint = os.path.join('DETECTION', 'models', model, 'model.ckpt')
+from DETECTION.config import args as tf_args
+
+tf_args.pipeline_config_path = config_path
+tf_args.trained_checkpoint = trained_checkpoint
+tf_args.input_dir = args.INPUT_DIR
+tf_args.output_dir = args.OUTPUT_DIR
+tf_args.channel = num_channels
+tf_args.c1 = os.path.join(args.INPUT_DIR, channels['DAPI'])
+tf_args.c2 = os.path.join(args.INPUT_DIR, channels['Histones'])
+from DETECTION.model import JNet as detection_model
+from DETECTION.DataLoader import DataLoader
 start = time.time()
-p = subprocess.call(command, shell=True)
+data = DataLoader(tf_args)
+model = detection_model(tf_args)
+model.test(data)
 duration = time.time() - start
 m, s = divmod(int(duration), 60)
 h, m = divmod(m, 60)

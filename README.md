@@ -92,8 +92,24 @@
 ## 2. Detection
 1. __setup__:
     - Download executable from [here](https://github.com/google/protobuf/releases) and run the following command from
-     ```lib``` directory:
+     ```lib``` directory [(read more)](https://github.com/tensorflow/models/blob/master/research/object_detection/g3doc/installation.md#protobuf-compilation):
     ``` bash
-    # from 2_DETECTION/lib
+    # from DETECTION/lib
     protoc object_detection/protos/*.proto --python_out=.
+    ```
+2. Parse the arguments to  `main_detection.py`:
+  - __if only DAPI:__
+    ```bash
+    python main_detection.py \
+       --INPUT_DIR=/brazos/roysam/datasets/TBI/G2_Sham_Trained/G2_BR#22_HC_13L/original \
+       --OUTPUT_DIR=/brazos/roysam/datasets/TBI/G2_Sham_Trained/G2_BR#22_HC_13L/detection_results \
+       --DAPI=R2C1.tif
+    ```
+  - __if DAPI + Histones:__
+    ```bash
+    python main_detection.py \
+       --INPUT_DIR=/brazos/roysam/datasets/TBI/G2_Sham_Trained/G2_BR#22_HC_13L/original \
+       --OUTPUT_DIR=/brazos/roysam/datasets/TBI/G2_Sham_Trained/G2_BR#22_HC_13L/detection_results \
+       --DAPI=R2C1.tif \
+       --HISTONES=R2C2.tif
     ```
