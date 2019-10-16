@@ -1,54 +1,52 @@
-import tensorflow as tf
-import time
+import argparse
 
-flags = tf.app.flags
-flags.DEFINE_string('mode', 'test', 'train | test | eval | write_crops | update_xmls | create_tfrecord')
+parser = argparse.ArgumentParser()
+
+parser.add_argument('--mode', type=str, default='test', help='train | test | eval | write_crops | update_xmls | create_tfrecord')
 
 # load model
-flags.DEFINE_string('pipeline_config_path', 'models/dapi/pipeline_config.config', 'Path to detection config file')
-
+parser.add_argument('--pipeline_config_path', type=str, default='models/dapi/pipeline_config.config', help='Path to detection config file')
 
 # train
-flags.DEFINE_string('model_dir', 'training/NeuN', 'Path to output model directory '
-                                                  'where event and checkpoint files will be written.')
+parser.add_argument('--model_dir', type=str, default='training/NeuN', help='Path to output model directory where event and checkpoint files will be written.')
 
 # test
-flags.DEFINE_string('trained_checkpoint', 'models/dapi/model.ckpt-63896', 'Path to trained checkpoint')
-flags.DEFINE_integer('batch_size', 2, 'training batch size')
-flags.DEFINE_integer('max_proposal', 500, 'maximum proposal per image')
-flags.DEFINE_float('score_threshold', .4, 'Threshold of score of detection box')
-flags.DEFINE_integer('skip_edge', 10, 'skip object with this distance to edge')
-flags.DEFINE_string('crop_augmentation', None, 'flip_left_right | rot90 | None')
-flags.DEFINE_string('input_shape', None, 'Comma delimited input shape e.g 300,300,3')
+parser.add_argument('--trained_checkpoint', type=str, default='models/dapi/model.ckpt', help='Path to trained checkpoint')
+parser.add_argument('--batch_size',type=int, default=2, help='training batch size')
+parser.add_argument('--max_proposal', type=int, default=500, help='maximum proposal per image')
+parser.add_argument('--score_threshold', type=int, default=.4, help='Threshold of score of detection box')
+parser.add_argument('--skip_edge', type=int, default=10, help='skip object with this distance to edge')
+parser.add_argument('--crop_augmentation', type=str, default=None, help='flip_left_right | rot90 | None')
+parser.add_argument('--input_shape', type=str, default=None, help='Comma delimited input shape e.g 300,300,3')
 # post processing
-flags.DEFINE_float('nms_iou', .6, 'intersection over union of bbxs for non max suppression')
-flags.DEFINE_integer('close_centers_r', 5, 'Minimum distance between two centers')
+parser.add_argument('--nms_iou', type=int, default=.6, help='intersection over union of bbxs for non max suppression')
+parser.add_argument('--close_centers_r', type=int, default=5, help='Minimum distance between two centers')
 
 # data
-flags.DEFINE_string('input_dir', r'E:\jahandar\DashData\TBI\G3_BR#14_HC_11L', 'Path to the directory of input data')
-flags.DEFINE_string('output_dir', r'E:\jahandar\DashData\TBI\G3_BR#14_HC_11L\detection_results', 'Path to the directory to save results')
-flags.DEFINE_integer('channel', 1, 'Network input channel size')
-flags.DEFINE_string('c1', 'R2C1.tif', 'image 1 path')
-flags.DEFINE_string('c2', 'R2C1.tif', 'image 2 path')
-flags.DEFINE_string('c3', 'R2C3.tif', 'image 3 path')
-flags.DEFINE_string('bbxs_file', None, 'txt file name of bounding boxes')
-flags.DEFINE_string('centers_file', None, 'txt file name of centers')
-flags.DEFINE_integer('height', 300, 'Network input height size - crop large image with this height')
-flags.DEFINE_integer('width', 300, 'Network input width size - crop large image with this height')
-flags.DEFINE_integer('depth', None, 'Network input depth size (in the case of 3D input images)')
-flags.DEFINE_integer('overlap', 100, 'Overlap of crops')
+parser.add_argument('--input_dir', type=str, default=r'E:\jahandar\DashData\TBI\G3_BR#14_HC_11L', help='Path to the directory of input data')
+parser.add_argument('--output_dir', type=str, default=r'E:\jahandar\DashData\TBI\G3_BR#14_HC_11L\detection_results', help='Path to the directory to save results')
+parser.add_argument('--channel', type=int, default=1, help='Network input channel size')
+parser.add_argument('--c1', type=str, default='R2C1.tif', help='image 1 path')
+parser.add_argument('--c2', type=str, default='R2C1.tif', help='image 2 path')
+parser.add_argument('--c3', type=str, default='R2C3.tif', help='image 3 path')
+parser.add_argument('--bbxs_file', type=str, default=None, help='txt file name of bounding boxes')
+parser.add_argument('--centers_file', type=str, default=None, help='txt file name of centers')
+parser.add_argument('--height', type=int, default=300, help='Network input height size - crop large image with this height')
+parser.add_argument('--width', type=int, default=300, help='Network input width size - crop large image with this height')
+parser.add_argument('--depth', type=int, default=None, help='Network input depth size (in the case of 3D input images)')
+parser.add_argument('--overlap', type=int, default=100, help='Overlap of crops')
 
 # write_crops parameters => write crops with specified size from large image
-flags.DEFINE_string('save_folder', 'data/test/hpc_crop', 'Parent folder of imgs & xmls folders')
-flags.DEFINE_integer('crop_width', None, 'Crop large image with this width   | use "width" if None')
-flags.DEFINE_integer('crop_height', None, 'Crop large image with this height | use "height" if None')
-flags.DEFINE_integer('crop_overlap', None, 'Overlap between crops (in pixel) | use "overlap" if None')
-flags.DEFINE_boolean('adjust_hist', True, 'Adjust histogram of crop for higher quality image')
+parser.add_argument('--save_folder', type=str, default='data/test/hpc_crop', help='Parent folder of imgs & xmls folders')
+parser.add_argument('--crop_width', type=int, default=None, help='Crop large image with this width   | use "width" if None')
+parser.add_argument('--crop_height', type=int, default=None, help='Crop large image with this height | use "height" if None')
+parser.add_argument('--crop_overlap', type=int, default=None, help='Overlap between crops (in pixel) | use "overlap" if None')
+parser.add_argument('--adjust_hist', type=str, default=True, help='Adjust histogram of crop for higher quality image')
 
 # update_xmls parameters => updates the objects in bbxs.txt with new objects
-flags.DEFINE_string('xmls_dir', 'data/test/hpc_crop/xmls', 'Parent folder of imgs & xmls folders')
-flags.DEFINE_string('new_bbxs', 'updated_bbxs.txt', 'Save new bounding boxes filename')
+parser.add_argument('--xmls_dir', type=str, default='data/test/hpc_crop/xmls', help='Parent folder of imgs & xmls folders')
+parser.add_argument('--new_bbxs', type=str, default='updated_bbxs.txt', help='Save new bounding boxes filename')
 
 
 
-args = tf.app.flags.FLAGS
+args, _ = parser.parse_known_args()
