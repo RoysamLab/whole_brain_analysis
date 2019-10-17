@@ -14,4 +14,4 @@ python main_reconstruction_lin.py \
        --INPUT_DIR=/brazos/roysam/datasets/TBI/G2_Sham_Trained/G2_BR#22_HC_13L/original \
        --OUTPUT_DIR=/brazos/roysam/datasets/TBI/G2_Sham_Trained/G2_BR#22_HC_13L \
        --MODE=supervised \
-       --SCRIPT=scripts/20_plex
+       --SCRIPT=scripts/20_plex.csv
