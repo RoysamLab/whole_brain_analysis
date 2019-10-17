@@ -36,12 +36,7 @@ input_dir = args.INPUT_DIR
 output_dir = os.path.join(args.OUTPUT_DIR, 'registered')
 command = ' '.join([r"python RECONSTRUCTION/registration.py",
                     "--input_dir={}".format(input_dir),
-                    "--output_dir={}".format(output_dir),
-                    "--maxtrials=100",
-                    "--tiling='400,800'",
-                    "--imadjust=True",
-                    "--demo=True",
-                    "-nk 30000"])
+                    "--output_dir={}".format(output_dir)])
 start = time.time()
 p = subprocess.call(command, shell=True)
 duration = time.time() - start
