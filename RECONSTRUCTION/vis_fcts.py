@@ -16,14 +16,19 @@ def adjust_image (img):
     img = exposure.rescale_intensity(img, in_range=(p2, p98))          # Load over images
     return img
 
+#%%
 def check_shape(img,shape):
-    if img.shape[0] > shape[0] and img.shape[1] > shape[1] :
-        checked_img = img [:shape[0],:shape[1]]
-    else:
-        checked_img = np.zeros((shape[0], shape[1]), dtype = img.dtype )
-        checked_img [:img.shape[0] ,:img.shape[1] ] = img
+    if shape[0] <= img.shape[0] and shape[1] <= img.shape[1]:                    # crop the image
+        checked_img =  img [:shape[0] ,:shape[1] ]
+    else:                                                                      # zeropadding
+        canvas = np.zeros([max(shape[0],img.shape[0]) ,
+                           max(shape[1],img.shape[1]) ], dtype = img.dtype )
+        canvas[:min( shape[0],img.shape[0] ) ,
+               :min( shape[1],img.shape[1] ) ]= img[:min( shape[0],img.shape[0] ) ,
+                                                    :min( shape[1],img.shape[1] ) ]
+        checked_img = canvas[:shape[0] ,:shape[1] ]
     return checked_img
-
+#%%
 def crop_tiles( img_shape,tile_shape,crop_overlap = 0,ck_shift=None):
     (img_rows,img_cols) =  img_shape  
     (tile_height,tile_width)  = tile_shape     
