@@ -187,8 +187,6 @@ def spl_tiled_data (data, tileRange_ls):
             spl_tile_ls.append(ids_bin_kep)    
     return  spl_tile_ls,spl_tile_dic
 
-
-
 def mini_register(target,source,paras,src=None,dst = None):
     print ("\n#### mini_register",src,dst)   
     print ( "target.type= ", target.dtype, "target.mean=",target.mean() )
@@ -300,17 +298,16 @@ def registrationORB_tiled(targets, sources, paras, write_path, output_type="16bi
         if keypoints1 is None or descriptors1 is None:  # need to create featureExtraction for target, else read the created one from input
             keypoints1, descriptors1 = mpfcts.featureExtract_tiled(target0, paras, tileRange_ls)
         
-        np.save( os.path.join ( write_path, source0_key.split(".")[0] + "_keypoints0.npy"))
-        np.save( os.path.join ( write_path, source0_key.split(".")[0] + "_descriptors0.npy"))
-        np.save( os.path.join ( write_path, target0_key.split(".")[0] + "_keypoints1.npy"))
-        np.save( os.path.join ( write_path, target0_key.split(".")[0] + "_descriptors1.npy"))    
+        np.save( os.path.join ( write_path, source0_key + "_keypoints0.npy"),keypoints0)
+        np.save( os.path.join ( write_path, source0_key + "_descriptors0.npy"),descriptors0)
+        np.save( os.path.join ( write_path, target0_key + "_keypoints1.npy"),keypoints1)
+        np.save( os.path.join ( write_path, target0_key + "_descriptors1.npy"),descriptors1)   
         print ("EXTRACT KEYPOINTS have been saved")
-
     else:
-        keypoints0   = np.load( os.path.join ( write_path, source0_key.split(".")[0] + "_keypoints0.npy"))
-        descriptors0 = np.load( os.path.join ( write_path, source0_key.split(".")[0] + "_descriptors0.npy"))
-        keypoints1   = np.load( os.path.join ( write_path, target0_key.split(".")[0] + "_keypoints1.npy"))
-        descriptors1 = np.load( os.path.join ( write_path, target0_key.split(".")[0] + "_descriptors1.npy"))           
+        keypoints0 = np.load( os.path.join ( write_path, source0_key + "_keypoints0.npy"))
+        descriptors0 = np.load( os.path.join ( write_path, source0_key + "_descriptors0.npy"))
+        keypoints1= np.load( os.path.join ( write_path, target0_key + "_keypoints1.npy"))
+        descriptors1 = np.load( os.path.join ( write_path, target0_key + "_descriptors1.npy"))    
         print ("EXTRACT KEYPOINTS have been load from path")
 
     t_featureExtract_tiled = time.time()
@@ -625,40 +622,3 @@ if __name__ == '__main__':
     print('*' * 50)
     print('*' * 50)
     print('Registeration pipeline finished successfully in {} seconds.'.format( time.time() - start))
-
-
-
-#
-#
-#
-#binary_diff = io.imread(r"D:\research in lab\dataset\50CHN\registration_demo\after\R1C1-Err3.9%_differenceVis.jpg")[:100,:100,0]
-#target_img = io.imread(r"D:\research in lab\dataset\50CHN\registration_demo\after\R2C1.tif")
-#binary_target = target_img >= threshold_otsu(target_img) * 1.2
-#binary_diff = (binary_diff > 125)*1
-#
-##plt.figure(),plt.imshow(binary_target)
-##plt.figure(),plt.imshow( ,plt.colorbar()
-#
-#tile_width, tile_height    = [1000,1000]
-#img_rows,img_cols = (10000, 8000)                   
-#tileRange_ls = []    
-#crop_overlap = 10
-#for i in range(0, img_rows, tile_height- crop_overlap ):
-#   for j in range(0, img_cols, tile_width -crop_overlap):
-#       tileRange_ls.append ( [ i,j,
-#                              min(img_rows, tile_height + i),
-#                              min(img_cols, tile_width  + j )] )
-#tiles_numbers = len(tileRange_ls)
-#    
-#diff_area = np.zeros( [int(img_rows/tile_height) , int(img_cols/tile_width)] )
-#for t_i, tileRange in enumerate( tileRange_ls):    
-#    crop_diff = binary_diff [ tileRange[0]:tileRange[2], 
-#                              tileRange[1]:tileRange[3]] 
-#    crop_target = binary_target [ tileRange[0]:tileRange[2], 
-#                                  tileRange[1]:tileRange[3]] 
-#    diff = crop_diff.sum()/crop_target.sum()
-#    i , j = [ int(tileRange[0]/tile_height), int(tileRange[1]/tile_width)]
-#    diff_area[i,j] = diff
-#plt.imshow( diff_area),plt.colorbar()
-#
-
