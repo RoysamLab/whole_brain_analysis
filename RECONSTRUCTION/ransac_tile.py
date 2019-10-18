@@ -217,10 +217,6 @@ def ransac_tile(data, model_class, min_samples, residual_threshold,
         sample_model_residuals = np.abs(sample_model.residuals(*data))
         # consensus set / inliers
         
-        import matplotlib.pyplot as plt
-        plt.figure()
-        plt.hist(sample_model_residuals,100)
-        
         sample_model_inliers = sample_model_residuals < residual_threshold
         
         sample_model_residuals_sum = np.sum(np.abs(sample_model_residuals))
