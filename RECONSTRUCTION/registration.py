@@ -67,7 +67,7 @@ parser.add_argument('-i', '--input_dir',
 parser.add_argument('-o', '--output_dir',
                     default=r"D:\research in lab\dataset\50CHN\registration_demo\after_overlap_new",
                     help='Path to the directory to save output images')
-parser.add_argument('-ot', '--outputType', required=False, default="8bit", type=str,
+parser.add_argument('-ot', '--outputType', required=False, default="16bit", type=str,
                     help='Save tif image type: "8bit" or "16bit"')
 parser.add_argument('-it', '--inputType', required=False, default="16bit", type=str,
                     help='Save tif image type: "8bit" or "16bit"')
@@ -353,7 +353,7 @@ def registrationORB_tiled(targets, sources, paras, write_path, output_type="16bi
                                                 spl_tile_ls = spl_tile_ls)      
     print ("\t Final inliers%  =" , ( inliers.sum()/len(inliers)) *100 )
 #    
-    boostrapped = True
+    boostrapped = False
     if boostrapped == True:
 #        boostrapped_dic = {}
         boostrap_tileRange_ls = []
@@ -622,3 +622,5 @@ if __name__ == '__main__':
     print('*' * 50)
     print('*' * 50)
     print('Registeration pipeline finished successfully in {} seconds.'.format( time.time() - start))
+
+
