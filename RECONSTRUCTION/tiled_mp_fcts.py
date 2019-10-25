@@ -10,6 +10,9 @@ from skimage.transform import ProjectiveTransform, SimilarityTransform, AffineTr
 import multiprocessing
 from multiprocessing.pool import ThreadPool
 import warnings
+from skimage import segmentation,measure,morphology   
+warnings.filterwarnings("ignore")
+import time
 warnings.filterwarnings("ignore")
 
 from sklearn.neighbors import DistanceMetric
@@ -154,10 +157,8 @@ def match_descriptors_tiled (keypoints0,descriptors0,keypoints1,descriptors1,
     
     src  = src[1:, :]
     dst  = dst[1:, :]
-    inliers = inliers[1:]
-          
+    inliers = inliers[1:]          
     return src,dst
-
 
 def transfromest_tiled(keypoints0,descriptors0,keypoints1,descriptors1, paras, tilerange_ls ,ck_shift):
     print (" \n''' 2. transform estimation and ransac''' ")
@@ -214,3 +215,120 @@ def transfromest_tiled(keypoints0,descriptors0,keypoints1,descriptors1, paras, t
         print("*" * 10 + " transfromest_tiled: = ", inliers.shape[0] )
 
     return src,dst
+
+##############  #''' merge_diff_mask related'''' ####################
+
+def get_miss_mask (binary_diff, min_size = 5000):
+    new_centers_mask_bin = morphology.binary_erosion (binary_diff,morphology.disk(6))   
+    new_centers_mask_bin = morphology.binary_dilation (new_centers_mask_bin,morphology.disk(60))   
+    masks_labels = measure.label ( new_centers_mask_bin)
+    for obj in measure.regionprops(masks_labels):
+        if obj.area < min_size:
+            masks_labels[masks_labels==obj.label] = 0
+    return masks_labels
+        
+def get_miss_mask_tile (binary_diff_ls, min_size = 5000):
+    masks_labels_ls= []
+    for binary_diff in binary_diff_ls:
+        masks_labels = get_miss_mask (binary_diff, min_size = min_size)
+        masks_labels_ls.append(masks_labels)
+    return masks_labels_ls 
+       
+def exam_diff_mask_tile  (inital_diff, boostrap_tileRange_ls,numofthreads, min_area):
+    print("numofthreads = ", numofthreads)        
+    pool = ThreadPool(processes=numofthreads)
+    
+    # prepare the data
+    inital_diff_crop_ls = []
+    for i, tileRange in enumerate( boostrap_tileRange_ls): 
+        inital_diff_crop = inital_diff[ tileRange[0]:tileRange[2],   #i: i+crop_height
+                                        tileRange[1]:tileRange[3]]
+        print (tileRange," area:",inital_diff_crop.sum())
+        inital_diff_crop_ls.append(inital_diff_crop)    
+            
+    ls_size = int(np.ceil(len(inital_diff_crop_ls)/numofthreads))
+  
+    # run multiprocess
+    async_result = []
+    for th in range (0, numofthreads):
+        inital_diff_crop_ls_mp   = inital_diff_crop_ls[  th*ls_size: th*ls_size +ls_size ]     # split the whole tilerange_ls in to parts for multiprocessing  
+        if len(inital_diff_crop_ls_mp) > 0 : 
+            async_result.append(  
+                    pool.apply_async( 
+                            get_miss_mask_tile, ( inital_diff_crop_ls_mp,min_area                                    
+                                )))  # tuple of args for foo
+#            print("\tmulti thread for", th, " ... ,","len(inital_diff_crop_ls_mp)=",len(inital_diff_crop_ls_mp))
+                    
+    pool.close()        
+    pool.join()
+    # load results
+#    import pdb; pdb.set_trace()
+    masks_labels_ls = []
+    diff_mask = np.zeros_like(inital_diff,dtype = np.bool)
+    for r in async_result:
+        masks_labels_ls += r.get()
+    for i, (tileRange,masks_labels) in enumerate( zip(boostrap_tileRange_ls,masks_labels_ls)): 
+        diff_mask[ tileRange[0]:tileRange[2],   #i: i+crop_height
+                   tileRange[1]:tileRange[3]] = masks_labels
+    return diff_mask
+
+
+def merge_diff_mask ( boostrap_tileRange_ls, inital_diff, paras):
+    
+    diff_mask = np.zeros_like(inital_diff,dtype = np.bool)
+    t0 = time.time()
+    print ("'''merge_diff_mask '''")
+    print (" Step1 : exam all the small tile, fill the masks tile by tile")
+    min_area = ( paras.tile_shape[0] *paras.tile_shape[1]/4 ) 
+    max_area = ( paras.tile_shape[0] *paras.tile_shape[1]*10 )     
+    if len(boostrap_tileRange_ls) > 0 :    
+        if paras.multiprocess == False:  # use single process option
+            for i, tileRange in enumerate( boostrap_tileRange_ls): 
+                inital_diff_crop = inital_diff[ tileRange[0]:tileRange[2],   #i: i+crop_height
+                                                tileRange[1]:tileRange[3]]
+                    
+                diff_mask[ tileRange[0]:tileRange[2],   #i: i+crop_height
+                           tileRange[1]:tileRange[3]] = get_miss_mask (inital_diff_crop,
+                                                                           min_size = min_area/10)            
+        else:                              # use multiprocess option
+            # set numofthreads
+            if paras.multiprocess.isnumeric():
+                print("&&&&&& use specified number of numofthreads ")
+                numofthreads = int(paras.multiprocess)
+            else:
+                numofthreads = multiprocessing.cpu_count()
+                print("&&&&&&& use defalut number of numofthreads")
+            diff_mask = exam_diff_mask_tile  (inital_diff, boostrap_tileRange_ls,numofthreads, min_area/10)
+            
+    t1=  time.time()
+    print ("Used time = ", t1-t0)
+    print (" Step2 :  Merge the diff mask result into diff_label_final")
+    diff_mask = diff_mask > 0
+
+    diff_final = measure.label(diff_mask)           
+    current_max_label = diff_final.max()
+    
+    t2=  time.time()
+    print ("Used time = ", t2-t1)
+    print ( " Step3 :  check if size too big " ,"current_max_label=",current_max_label )
+    for obj in measure.regionprops(diff_final) :
+        if  obj.area > min_area:
+            diff_final[ obj.bbox[0]:obj.bbox[2],   #i: i+crop_height
+                        obj.bbox[1]:obj.bbox[3]] = obj.filled_image
+            if obj.area > max_area:     #:   # > min: accept ;  break in to two even parts
+                filled_image = np.zeros_like(obj.filled_image)
+                filled_image[ :, 0:int (filled_image.shape[1]/2)] = obj.filled_image[ 
+                              :, 0:int (filled_image.shape[1]/2)] * (current_max_label+1 -obj.label)
+                diff_final[ obj.bbox[0]:obj.bbox[2],   #i: i+crop_height
+                            obj.bbox[1]:obj.bbox[3]] += filled_image                       
+                current_max_label +=1              
+        else:
+            diff_final[ obj.bbox[0]:obj.bbox[2],   #i: i+crop_height
+                        obj.bbox[1]:obj.bbox[3]] = 0
+    
+    t3 =  time.time()
+    print ("Used time = ", t3-t2)              
+    print ("diff_label.max() =", diff_final.max())
+    return diff_final    
+    
+    

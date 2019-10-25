@@ -6,10 +6,13 @@ Created on Thu Sep 26 17:55:36 2019
 """
 import numpy as np
 from skimage import exposure
+#from s import ndimage
 from skimage.filters import threshold_otsu
-from skimage.util import img_as_uint ,img_as_ubyte,img_as_float
+from skimage.util import img_as_uint ,img_as_ubyte
 import warnings
+from skimage import segmentation,measure,morphology   
 warnings.filterwarnings("ignore")
+import time
 
 def adjust_image (img):
     p2, p98 = np.percentile(img, (2, 98))
@@ -54,8 +57,7 @@ def crop_tiles( img_shape,tile_shape,crop_overlap = 0,ck_shift=None):
     return result
 
 
-def eval_draw_diff (target, source, tileRange_ls= None, err_thres = 1) :   
-#    import pdb ; pdb.set_trace()  
+def eval_draw_diff (target, source, tileRange_ls= None) :   
     print ("\n--------------eval_draw_diff-------------------")
     vis_target = adjust_image( img_as_ubyte( target) )
     vis_source = adjust_image( img_as_ubyte( source))
@@ -66,32 +68,29 @@ def eval_draw_diff (target, source, tileRange_ls= None, err_thres = 1) :
             
     binary_source = vis_source >= threshold_otsu(vis_source) * 1.2
     binary_target = vis_target >= threshold_otsu(vis_target) * 1.2
-    binary_diff = abs( binary_source *1- binary_target *binary_target *1 ) 
+    binary_diff = abs( binary_source *1- binary_target *1 ) 
     error = binary_diff.sum()/binary_target.sum()* 100
-
-    misalignRange_ls = []
-    if tileRange_ls is not None : 
-        for tileRange in tileRange_ls:
-            crop_binary_diff = binary_diff[ tileRange[0]:tileRange[2],   #i: i+crop_height
-                                            tileRange[1]:tileRange[3]]   #j: j + crop_width    
-            crop_binary_target = binary_target[ tileRange[0]:tileRange[2],   #i: i+crop_height
-                                                tileRange[1]:tileRange[3]]   #j: j + crop_width    
     
-            crop_error = crop_binary_diff.sum()/crop_binary_target.sum()
-#            print ("all :mean",crop_binary_target.mean(), "error", crop_error) # (0.008 ~0.1;0.2~1.5)
-            if  ( crop_error > err_thres and                                    # make sure the misalign area is in large porportion
-                  crop_binary_target.mean() > 0.05 ):                           # make sure the intensity of raw image is high enough
-                misalignRange_ls.append(tileRange)
-#                print ("tileRange:",tileRange,"crop_error =", crop_error)
-
-    return vis, binary_diff,error,misalignRange_ls
+    error_map = None
+    if tileRange_ls is not None:
+        error_map = np.zeros(target.shape, dtype=np.int8)
+        for tileRange in  tileRange_ls:
+            binary_target_tile = binary_target [ tileRange[0]:tileRange[2],   #i: i+crop_height
+                                                 tileRange[1]:tileRange[3]] 
+            binary_diff_tile   = binary_diff [ tileRange[0]:tileRange[2],   #i: i+crop_height
+                                               tileRange[1]:tileRange[3]] 
+            if binary_target_tile.sum() > 0:
+                error_map [ tileRange[0]:tileRange[2],   #i: i+crop_height
+                            tileRange[1]:tileRange[3]] = int ( binary_diff_tile.sum()/binary_target_tile.sum()* 100)
+            
+    return vis, binary_diff,binary_target,error,error_map
 
 
 def differenceVis (binary_diff,kps,inliers=None, tileRange_ls = None,misalignRange_ls = None):
     vis_diff = np.dstack ( [ img_as_ubyte(binary_diff*255),             # RGB 
                             np.zeros_like(binary_diff,dtype= np.uint8),
                             np.zeros_like(binary_diff,dtype= np.uint8)])    
-            
+        
     for i in range(kps.shape[0]):
         x = int(kps[i,1])
         y = int(kps[i,0])
@@ -109,12 +108,16 @@ def differenceVis (binary_diff,kps,inliers=None, tileRange_ls = None,misalignRan
             vis_diff [ tileRange[0]:tileRange[2]  , tileRange[3]:tileRange[3]+3,: ] = 255   #i: i+crop_height
             vis_diff [ tileRange[2]:tileRange[2]+3, tileRange[1]:tileRange[3]  ,: ] = 255   #i: i+crop_height            
     if misalignRange_ls is not None:
-        for tileRange in  misalignRange_ls:
-            vis_diff [ tileRange[0]:tileRange[2]  , tileRange[1]:tileRange[1]+3,: ] = [0,255,255]    #i: i+crop_height
-            vis_diff [ tileRange[0]:tileRange[0]+3, tileRange[1]:tileRange[3]  ,: ] = [0,255,255]    #i: i+crop_height
-            vis_diff [ tileRange[0]:tileRange[2]  , tileRange[3]:tileRange[3]+3,: ] = [0,255,255]    #i: i+crop_height
-            vis_diff [ tileRange[2]:tileRange[2]+3, tileRange[1]:tileRange[3]  ,: ] = [0,255,255]    #i: i+crop_height           
-                
+        if type(misalignRange_ls) == list : 
+            for tileRange in  misalignRange_ls:
+                vis_diff [ tileRange[0]:tileRange[2]  , tileRange[1]:tileRange[1]+3,: ] = [0,255,255]    #i: i+crop_height
+                vis_diff [ tileRange[0]:tileRange[0]+3, tileRange[1]:tileRange[3]  ,: ] = [0,255,255]    #i: i+crop_height
+                vis_diff [ tileRange[0]:tileRange[2]  , tileRange[3]:tileRange[3]+3,: ] = [0,255,255]    #i: i+crop_height
+                vis_diff [ tileRange[2]:tileRange[2]+3, tileRange[1]:tileRange[3]  ,: ] = [0,255,255]    #i: i+crop_height   
+        else:
+            border = segmentation.find_boundaries(misalignRange_ls)
+            vis_diff[border >0] = [0,255,255]
+                            
     return vis_diff
 
 def spl_tiled_data (data, tileRange_ls):
@@ -138,7 +141,7 @@ def spl_tiled_data (data, tileRange_ls):
             spl_tile_ls.append(ids_bin_kep)    
     return  spl_tile_ls,spl_tile_dic
 
-def merge_tileRange(tileRange_ls,max_size = [8000,8000]) :
+def merge_tileRange(tileRange_ls,max_size = [8000,8000], min_size = [1000,1000]) :
     tileRange_merged_ls = []
     visited_tileRange_ls = []
     for tileRange  in tileRange_ls:
@@ -151,20 +154,17 @@ def merge_tileRange(tileRange_ls,max_size = [8000,8000]) :
                          and tileRange[1] <= exam_tileRange[1]
                          and tileRange[2] >= exam_tileRange[0]
                          and tileRange[3] >= exam_tileRange[1]) : 
-                        tileRange_merged_temp=  [ min (tileRange[0], exam_tileRange[0]),
-                                                       min (tileRange[1], exam_tileRange[1]),
-                                                       max (tileRange[2], exam_tileRange[2]),
-                                                       max (tileRange[3], exam_tileRange[3]),
+                        tileRange_merged_temp=  [ max(0,  min (tileRange[0], exam_tileRange[0] - min_size[0])),
+                                                  max(0,  min (tileRange[1], exam_tileRange[1] - min_size[0])),
+                                                  max (tileRange[2], exam_tileRange[2] + min_size[0]),
+                                                  max (tileRange[3], exam_tileRange[3] + min_size[1]),
                                                      ]
                         visited_tileRange_ls.append(exam_tileRange)
-                        tileRange_merged_temp_shape = [ tileRange_merged_temp[2] - tileRange_merged_temp[0],
-                                                        tileRange_merged_temp[3] - tileRange_merged_temp[1] ] 
-                        if ( tileRange_merged_temp_shape[0] < max_size[0]  and  
-                             tileRange_merged_temp_shape[1] < max_size[1] ) :     # make sure the merged size is not too big 
-                            tileRange_merged = tileRange_merged_temp
+                        tileRange_merged = tileRange_merged_temp
 
             if tileRange_merged == None: 
                 tileRange_merged_ls.append(tileRange)   
             else:
                 tileRange_merged_ls.append(tileRange_merged)   
     return tileRange_merged_ls
+

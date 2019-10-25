@@ -8,7 +8,6 @@ import numpy as np
 from sklearn.utils import check_random_state
 from random import sample
 import random
-import skimage 
 
 def _dynamic_max_trials(n_inliers, n_samples, min_samples, probability):
     """Determine number trials such that at least one outlier-free subset is
@@ -51,22 +50,39 @@ def _dynamic_max_trials(n_inliers, n_samples, min_samples, probability):
 
 
 
-def random_select_tile (spl_tile_ls,min_samples):
+def random_select_tile (spl_tile_ls,min_samples, crucial_id_tile_ls = [] ):
     tile_select_ratio = int( np.ceil( min_samples/ len(spl_tile_ls)) )
-    crucial_candidates = np.array([],dtype= np.int)    
+    crucial_candidates = np.array([],dtype= np.int)  
+    
+    must_candidates =  np.array([],dtype= np.int)  
+    # select the crucial_id_tile_ls first
+    if len(crucial_id_tile_ls ) > 0:
+        for c_ti in crucial_id_tile_ls:
+            spl_tile_idxs = spl_tile_ls[c_ti]
+            random.shuffle(spl_tile_idxs)   
+            must_candidates = np.concatenate( ( must_candidates,
+                                             spl_tile_idxs[:1] ),
+                                             axis=0 )# make sure the miss tile have keypoint to select   
+    
     # gurantee each tile have one item to be select (uniform distribution)
-    for spl_tile_idxs in spl_tile_ls:   
-        random.shuffle(spl_tile_idxs)          
-        crucial_candidates = np.concatenate( ( crucial_candidates,
-                                             spl_tile_idxs[:tile_select_ratio] ),
-                                             axis=0 )# make sure the miss tile have keypoint to select                   
+    for s_i , spl_tile_idxs in enumerate( spl_tile_ls ) :   
+        if s_i not in crucial_id_tile_ls:
+            random.shuffle(spl_tile_idxs)          
+            crucial_candidates = np.concatenate( ( crucial_candidates,
+                                                 spl_tile_idxs[:tile_select_ratio] ),
+                                                 axis=0 )# make sure the miss tile have keypoint to select                   
     random.shuffle(crucial_candidates)
-    return crucial_candidates[:min_samples]
+    selected_candidates = np.concatenate( ( must_candidates, 
+                                            crucial_candidates[:min_samples-must_candidates.shape[0]]  ), 
+                                         axis =0)
+
+
+    return selected_candidates
 
 def ransac_tile(data, model_class, min_samples, residual_threshold,
            is_data_valid=None, is_model_valid=None,
            max_trials=100, stop_sample_num=np.inf, stop_residuals_sum=0,
-           stop_probability=1, random_state=None, initial_inliers=None ,spl_tile_ls = None):
+           stop_probability=1, random_state=None, initial_inliers=None ,spl_tile_ls = None,verbose= False):
     
     """Fit a model to data with the RANSAC (random sample consensus) algorithm.
     RANSAC is an iterative algorithm for the robust estimation of parameters
@@ -152,7 +168,8 @@ def ransac_tile(data, model_class, min_samples, residual_threshold,
     best_inlier_residuals_sum = np.inf
     best_inliers = None
     best_inlier_tile_mean =0
-
+    best_inlier_tile_min = 0
+    
     random_state = check_random_state(random_state)
 
     # in case data is not pair of input and output, male it like it
@@ -184,20 +201,16 @@ def ransac_tile(data, model_class, min_samples, residual_threshold,
     # for the first run use initial guess of inliers
     spl_idxs = (initial_inliers if initial_inliers is not None
                     else random_select_tile (spl_tile_ls, min_samples) )
-#                else random_state.choice(num_samples, min_samples, replace=False))    
-#    import pdb ; pdb.set_trace()
 
     
 #    spl_idxs_crucial = []
+    crucial_id_tile_ls = []
     for num_trials in range(max_trials):
         # do sample selection according data pairs
         samples = [d[spl_idxs] for d in data]
         # for next iteration choose random sample set and be sure that no samples repeat
-#        spl_idxs = random_state.choice(num_samples, min_samples, replace=False)
-#        spl_idxs= np.concatenate ((np.array( spl_idxs_crucial,dtype=np.int),
-#                                   spl_idxs[:min_samples-len(spl_idxs_crucial)]),axis=0 )
-        
-        spl_idxs = random_select_tile (spl_tile_ls, min_samples) 
+     
+        spl_idxs = random_select_tile (spl_tile_ls, min_samples, crucial_id_tile_ls = crucial_id_tile_ls) 
         # optional check if random sample set is valid
         if is_data_valid is not None and not is_data_valid(*samples):
             continue
@@ -216,27 +229,24 @@ def ransac_tile(data, model_class, min_samples, residual_threshold,
 
         sample_model_residuals = np.abs(sample_model.residuals(*data))
         # consensus set / inliers
-        
+       
         sample_model_inliers = sample_model_residuals < residual_threshold
         
         sample_model_residuals_sum = np.sum(np.abs(sample_model_residuals))
 
         # choose as new best model if number of inliers is maximal
         sample_inlier_num = np.sum(sample_model_inliers)        
+        
         sample_inlier_tile_perc = [sample_model_inliers[a].sum() / len(sample_model_inliers[a])  
-                                        for a in spl_tile_ls]
-#        import pdb ; pdb.set_trace()
-#        sample_inlier_tile_mean = ( (np.array(sample_inlier_tile_perc)!=0).sum() ) / len(sample_inlier_tile_perc)   # non zero tiles
-        sample_inlier_tile_mean = np.mean(sample_inlier_tile_perc)   # non zero tiles
-
-#        sample_inlier_tile_std = np.std(sample_inlier_tile_perc)
-#        print ("sample_inlier_tile_mean =", sample_inlier_tile_mean)       
-#        print ("sample_inlier_tile_std =", sample_inlier_tile_std)       
+                                        for a in spl_tile_ls]                  # inlier list over all tiles
+               
+        sample_inlier_tile_mean = np.mean(sample_inlier_tile_perc)      
+#        if sample_inlier_tile_mean > 0.4  :                                     # most of the ones has been selected correctly
+#            crucial_id_tile_ls = list( np.argsort(sample_inlier_tile_perc)[ :int(min_samples/2)]   )       #
 
         if (
             # more inliers
-            sample_inlier_num > best_inlier_num
-#             sample_inlier_tile_mean > best_inlier_tile_mean
+             sample_inlier_tile_mean > best_inlier_tile_mean
 #             same number of inliers but less "error" in terms of residuals
             or (
                     sample_inlier_num == best_inlier_num
@@ -253,50 +263,55 @@ def ransac_tile(data, model_class, min_samples, residual_threshold,
                                                      num_samples,
                                                      min_samples,
                                                      stop_probability)
+
+            if max( sample_inlier_tile_perc) == 0:                                     # skip the failed trail
+                max_trials +=1
+                
             if (best_inlier_num >= stop_sample_num
                 or best_inlier_residuals_sum <= stop_residuals_sum
                 or num_trials >= dynamic_max_trials):
                 break
             
-#            if sample_inlier_tile_mean == best_inlier_tile_mean: 
-#            if sample_inlier_num == best_inlier_num: 
-            print("-iter: ", num_trials, "spl_idxs=", len(spl_idxs),
-              "sample_inlier_num=", '%.2f'%( best_inlier_num/len(best_inliers)))
+            if verbose is True:
+                print("-iter: ", num_trials, "spl_idxs=", spl_idxs,
+                  "sample_inlier_num=", '%.2f'%( best_inlier_num/len(best_inliers)))
 
-            ### local optimal selection  increase the threshold for K times
-            thre_multiplier = 10
-            iters = 100
-            local_residual_threshold = residual_threshold * thre_multiplier
-            det_thres = ( local_residual_threshold - residual_threshold ) / ( iters -1)
-
-            local_sample_model_residuals = np.abs(best_model.residuals(*data))
-            # consensus set / inliers
-            base_inliers = local_sample_model_residuals < local_residual_threshold     
-            data_base_inliers = [d[base_inliers] for d in data]
-#            base_model = model_class()    
-#            base_model.estimate(*data_base_inliers)
-
-            local_min_samples = int( min (base_inliers.sum()/2,10 ) )  
-            thres_iter = local_residual_threshold                              # initalize the threshold 
-
-            for r in range (iters): # inner loop)            
-                if len (data_base_inliers) > local_min_samples : 
-                    local_spl_idxs = random_state.choice(len(data_base_inliers),   
-                                                     local_min_samples, replace=False)     
-                    local_sample_data = [d[local_spl_idxs] for d in data_base_inliers] 
-                    local_sample_model = model_class()    
-                    local_sample_model.estimate(*local_sample_data)             # estimate model from samples
-                    
-                    iter_residuals = np.abs(local_sample_model.residuals(*data))
-                    inlier_iter = iter_residuals < thres_iter   
-                    temp_inlier_num = np.sum(inlier_iter)  
-                    
-                    if temp_inlier_num > best_inlier_num:
-                        best_inlier_num = temp_inlier_num
-                        best_model = local_sample_model
-                        best_inliers = inlier_iter
-                        print ("--- local updates to ",'%.2f'%(best_inlier_num/len(best_inliers)))
-                    thres_iter = thres_iter - det_thres                        
+#            '''  ### local optimal selection  increase the threshold for K times '''           
+#            thre_multiplier = 20
+#            K = 1000
+#            local_residual_threshold = residual_threshold * thre_multiplier
+#            det_thres = ( local_residual_threshold - residual_threshold ) / ( K -1)
+#
+#            local_sample_model_residuals = np.abs(best_model.residuals(*data))
+#            # consensus set / inliers
+#            base_inliers = local_sample_model_residuals < local_residual_threshold     
+#            data_base_inliers = [d[base_inliers] for d in data]
+#
+#            local_min_samples = int( min (base_inliers.sum()/2,10 ) )  
+#            thres_iter = local_residual_threshold                              # initalize the threshold 
+#
+#            for r in range (K): # inner loop)            
+#                if len (data_base_inliers) > local_min_samples : 
+#                    local_spl_idxs = random_state.choice(len(data_base_inliers),   
+#                                                     local_min_samples, replace=False)     
+#                    local_sample_data = [d[local_spl_idxs] for d in data_base_inliers] 
+#                    local_sample_model = model_class()    
+#                    local_sample_model.estimate(*local_sample_data)             # estimate model from samples
+#                    
+#                    iter_residuals = np.abs(local_sample_model.residuals(*data))
+#                    inlier_iter = iter_residuals < thres_iter   
+#                    temp_inlier_num = np.sum(inlier_iter)  
+#                    
+#                    iter_inlier_tile_perc = [inlier_iter[a].sum() / len(inlier_iter[a])  
+#                                for a in spl_tile_ls]                  # inlier list over all tiles
+#                    iter_inlier_tile_mean = np.mean(iter_inlier_tile_perc)   # non zero tiles
+#                    
+#                    if iter_inlier_tile_mean > best_inlier_tile_mean:
+#                        best_inlier_num = temp_inlier_num
+#                        best_model = local_sample_model
+#                        best_inliers = inlier_iter
+#                        print ("--- local updates to ",'%.2f'%(best_inlier_num/len(best_inliers)))
+#                    thres_iter = thres_iter - det_thres                       
 
                     
     # estimate final model using all inliers
@@ -304,5 +319,5 @@ def ransac_tile(data, model_class, min_samples, residual_threshold,
         # select inliers for each data array
         data_inliers = [d[best_inliers] for d in data]
         best_model.estimate(*data_inliers)    
-
+   
     return best_model, best_inliers
