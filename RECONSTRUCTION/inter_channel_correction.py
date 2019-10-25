@@ -119,7 +119,10 @@ def inter_channel_correct_supervised(input_dir, output_dir, script_file):
         xmin, ymin, xmax, ymax = src_info['xmin'], src_info['ymin'], src_info['xmax'], src_info['ymax']
 
         # read source roi
-        src_roi = tifffile.memmap(os.path.join(input_dir, src_name))[ymin:ymax, xmin:xmax]
+        src_roi = tifffile.imread(os.path.join(input_dir, src_name))
+        src_roi = src_roi[ymin:ymax, xmin:xmax]
+	#TODO: fix memmap bug with offset=0
+        # src_roi = tifffile.memmap(os.path.join(input_dir, src_name))
 
         # TODO: extend the noise channels to variable (not 3)
         # read noise rois
