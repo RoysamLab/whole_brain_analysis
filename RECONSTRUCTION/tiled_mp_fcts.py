@@ -17,7 +17,7 @@ warnings.filterwarnings("ignore")
 
 from sklearn.neighbors import DistanceMetric
 
-def featureExtract_tiled(img, paras, tileRange_ls):
+def featureExtract_tiled(img, paras, tileRange_ls,verbose=False):
    
     if paras.multiprocess == False:  # use single process option
         keypoint_all, descriptor_all = orb_detect_tiled(img, paras, tileRange_ls)
@@ -25,15 +25,12 @@ def featureExtract_tiled(img, paras, tileRange_ls):
     else:                              # use multiprocess option
         # Set numOfThreads
         if paras.multiprocess.isnumeric():
-            print("&&&&&& Use specified number of numOfThreads ")
             numOfThreads = int(paras.multiprocess)
         else:
             numOfThreads = multiprocessing.cpu_count()
-            print("&&&&&&& Use defalut number of numOfThreads")
-        print("numOfThreads = ", numOfThreads)        
+     
         pool = ThreadPool(processes=numOfThreads)
         ls_size = int(np.ceil(len(tileRange_ls)/numOfThreads))
-        print ("ls_size =",ls_size)
         async_result = []
         # run multiprocess 
         for th in range (0, numOfThreads):
@@ -44,7 +41,8 @@ def featureExtract_tiled(img, paras, tileRange_ls):
                                 orb_detect_tiled, ( 
                                         img, paras, tileRange_ls_mp
                                     )))  # tuple of args for foo
-                print("\tmulti thread for", th, " ... ,","len(tileRange_ls_mp)=",len(tileRange_ls_mp))
+                if verbose == True:
+                    print("\tmulti thread for", th, " ... ,","len(tileRange_ls_mp)=",len(tileRange_ls_mp))
         pool.close()        
         pool.join()
         # load results
@@ -79,9 +77,9 @@ def orb_detect_tiled(img, paras, tileRange_ls,verbose = 0 ):
         # only tiles contain enough engergy (obvious contrast of adjacent pixels) have keypoints                
         tile_n_keypoints = int(paras.n_keypoints / paras.tiles_numbers)  # past average distribute
 
-        orb = ORB(n_keypoints=tile_n_keypoints,
-                fast_threshold=paras.fast_threshold,
-                harris_k=paras.harris_k)
+        orb = ORB(n_keypoints = tile_n_keypoints,
+                fast_threshold = paras.fast_threshold,
+                harris_k = paras.harris_k)
         #  if without this step, orb.detect_and_extract will return error
         orb.detect(crop_img)
         if verbose == 1:
@@ -110,7 +108,7 @@ def orb_detect_tiled(img, paras, tileRange_ls,verbose = 0 ):
 
 
 def match_descriptors_tiled (keypoints0,descriptors0,keypoints1,descriptors1,
-                             paras, tileRange_ls ,ck_shift = 30,verbose =0):
+                             target_shape, tileRange_ls ,ck_shift = 30,verbose =0):
     print (" \n''' match_descriptors_tiled ")
     ck_tileRange_ls = []
     src   = np.zeros((1, 2))
@@ -120,8 +118,8 @@ def match_descriptors_tiled (keypoints0,descriptors0,keypoints1,descriptors1,
         
         ck_tileRange=  [ max( 0 , tileRange[0] - ck_shift ), 
                          max( 0 , tileRange[1] - ck_shift ),
-                         min( int(paras.target_shape[0] ) -1, tileRange[2] + ck_shift) , 
-                         min( int(paras.target_shape[1] ) -1, tileRange[3] + ck_shift) ]         # extract the labels of subpicious window from previous merged results
+                         min( int(target_shape[0] ) -1, tileRange[2] + ck_shift) , 
+                         min( int(target_shape[1] ) -1, tileRange[3] + ck_shift) ]         # extract the labels of subpicious window from previous merged results
         ck_tileRange_ls.append(ck_tileRange)                    
         bin_descriptors1  = ( keypoints1[:,0] >= tileRange[0] ) * ( keypoints1[:,0] <= tileRange[2] )
         bin_descriptors1 *= ( keypoints1[:,1] >= tileRange[1] ) * ( keypoints1[:,1] <= tileRange[3] )         
@@ -166,18 +164,17 @@ def transfromest_tiled(keypoints0,descriptors0,keypoints1,descriptors1, paras, t
     if paras.multiprocess == False:  # use single process option
         src,dst = match_descriptors_tiled (keypoints0, descriptors0,
                                          keypoints1,descriptors1, 
-                                         paras, tilerange_ls,
+                                         paras.target_shape, tilerange_ls,
                                          ck_shift = paras.ck_shift)        
     else:                              # use multiprocess option
         # set numofthreads
         if paras.multiprocess.isnumeric():
-            print("&&&&&& use specified number of numofthreads ")
             numofthreads = int(paras.multiprocess)
         else:
             numofthreads = multiprocessing.cpu_count()
-            print("&&&&&&& use defalut number of numofthreads")
             
-        print("numofthreads = ", numofthreads)        
+#    print("numofthreads = ", numofthreads)        
+     
         pool = ThreadPool(processes=numofthreads)
         ls_size = int(np.ceil(len(tilerange_ls)/numofthreads))
         print ("ls_size =",ls_size)
@@ -191,7 +188,7 @@ def transfromest_tiled(keypoints0,descriptors0,keypoints1,descriptors1, paras, t
                         pool.apply_async( 
                                 match_descriptors_tiled, ( 
                                         keypoints0,descriptors0,keypoints1,descriptors1, 
-                                        paras, tilerange_ls_mp ,ck_shift
+                                        paras.target_shape, tilerange_ls_mp ,ck_shift
                                     )))  # tuple of args for foo
                 print("\tmulti thread for", th, " ... ,","len(tilerange_ls_mp)=",len(tilerange_ls_mp))
                         
@@ -225,6 +222,16 @@ def get_miss_mask (binary_diff, min_size = 5000):
     for obj in measure.regionprops(masks_labels):
         if obj.area < min_size:
             masks_labels[masks_labels==obj.label] = 0
+        else:            
+            filled = masks_labels[ obj.bbox[0]:obj.bbox[2],   #i: i+crop_height
+                                   obj.bbox[1]:obj.bbox[3]]
+            filled = filled*(filled!=obj.label) + obj.filled_image*obj.label    # background +  new filledImage
+            masks_labels[ obj.bbox[0]:obj.bbox[2],   #i: i+crop_height
+                          obj.bbox[1]:obj.bbox[3]] = filled
+            if obj.area /  ( ( obj.bbox[2]-obj.bbox[0] ) * (obj.bbox[3]-obj.bbox[1]) ) > 0.8:
+                masks_labels[ obj.bbox[0]:obj.bbox[2],   #i: i+crop_height
+                              obj.bbox[1]:obj.bbox[3]] = obj.label 
+
     return masks_labels
         
 def get_miss_mask_tile (binary_diff_ls, min_size = 5000):
@@ -235,7 +242,7 @@ def get_miss_mask_tile (binary_diff_ls, min_size = 5000):
     return masks_labels_ls 
        
 def exam_diff_mask_tile  (inital_diff, boostrap_tileRange_ls,numofthreads, min_area):
-    print("numofthreads = ", numofthreads)        
+#    print("numofthreads = ", numofthreads)        
     pool = ThreadPool(processes=numofthreads)
     
     # prepare the data
@@ -243,7 +250,6 @@ def exam_diff_mask_tile  (inital_diff, boostrap_tileRange_ls,numofthreads, min_a
     for i, tileRange in enumerate( boostrap_tileRange_ls): 
         inital_diff_crop = inital_diff[ tileRange[0]:tileRange[2],   #i: i+crop_height
                                         tileRange[1]:tileRange[3]]
-        print (tileRange," area:",inital_diff_crop.sum())
         inital_diff_crop_ls.append(inital_diff_crop)    
             
     ls_size = int(np.ceil(len(inital_diff_crop_ls)/numofthreads))
@@ -262,7 +268,6 @@ def exam_diff_mask_tile  (inital_diff, boostrap_tileRange_ls,numofthreads, min_a
     pool.close()        
     pool.join()
     # load results
-#    import pdb; pdb.set_trace()
     masks_labels_ls = []
     diff_mask = np.zeros_like(inital_diff,dtype = np.bool)
     for r in async_result:
@@ -293,11 +298,9 @@ def merge_diff_mask ( boostrap_tileRange_ls, inital_diff, paras):
         else:                              # use multiprocess option
             # set numofthreads
             if paras.multiprocess.isnumeric():
-                print("&&&&&& use specified number of numofthreads ")
                 numofthreads = int(paras.multiprocess)
             else:
                 numofthreads = multiprocessing.cpu_count()
-                print("&&&&&&& use defalut number of numofthreads")
             diff_mask = exam_diff_mask_tile  (inital_diff, boostrap_tileRange_ls,numofthreads, min_area/10)
             
     t1=  time.time()
@@ -312,20 +315,17 @@ def merge_diff_mask ( boostrap_tileRange_ls, inital_diff, paras):
     print ("Used time = ", t2-t1)
     print ( " Step3 :  check if size too big " ,"current_max_label=",current_max_label )
     for obj in measure.regionprops(diff_final) :
-        if  obj.area > min_area:
+        if  obj.area < min_area*4:
             diff_final[ obj.bbox[0]:obj.bbox[2],   #i: i+crop_height
-                        obj.bbox[1]:obj.bbox[3]] = obj.filled_image
-            if obj.area > max_area:     #:   # > min: accept ;  break in to two even parts
-                filled_image = np.zeros_like(obj.filled_image)
-                filled_image[ :, 0:int (filled_image.shape[1]/2)] = obj.filled_image[ 
-                              :, 0:int (filled_image.shape[1]/2)] * (current_max_label+1 -obj.label)
-                diff_final[ obj.bbox[0]:obj.bbox[2],   #i: i+crop_height
-                            obj.bbox[1]:obj.bbox[3]] += filled_image                       
-                current_max_label +=1              
-        else:
-            diff_final[ obj.bbox[0]:obj.bbox[2],   #i: i+crop_height
-                        obj.bbox[1]:obj.bbox[3]] = 0
-    
+                        obj.bbox[1]:obj.bbox[3]] = 0            
+#        if obj.area > max_area:     #:   # > min: accept ;  break in to two even parts
+#            filled_image = obj.filled_image
+#            filled_image[ :, 0:int (filled_image.shape[1]/2)] = obj.filled_image[ 
+#                          :, 0:int (filled_image.shape[1]/2)] * (current_max_label+1 -obj.label)
+#            diff_final[ obj.bbox[0]:obj.bbox[2],   #i: i+crop_height
+#                        obj.bbox[1]:obj.bbox[3]] += filled_image                       
+#            current_max_label +=1              
+
     t3 =  time.time()
     print ("Used time = ", t3-t2)              
     print ("diff_label.max() =", diff_final.max())
