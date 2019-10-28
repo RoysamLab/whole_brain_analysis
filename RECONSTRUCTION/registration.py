@@ -25,6 +25,7 @@ conda install -c conda-forge tifffile
 import os
 import re
 import sys
+import glob
 import time
 import numpy as np
 import shutil
@@ -58,7 +59,7 @@ parser = argparse.ArgumentParser(description='***  Whole brain segentation pipel
                                              + '-w /data/xiaoyang/CHN50/Registered_Rebecca',
                                  formatter_class=argparse.RawTextHelpFormatter)
 
-parser.add_argument('-d', '--demo', default='F', type=str,
+parser.add_argument('-d', '--demo', default='T', type=str,
                     help=" 'T' only match channel 0, 'F' match all channels")
 parser.add_argument('-i', '--input_dir', 
                     default=r"D:\research in lab\dataset\50CHN\registration_demo\before",
@@ -564,8 +565,11 @@ def main():
 
     assert args.outputType in ["16bit", "8bit"]
 
-    Set_name = os.listdir(args.input_dir)[1].split("_")[0] + "_"
+#    Set_name = os.listdir(args.input_dir)[1].split("_")[0] + "_"
+    input_dir_image = [f for f in os.listdir(args.input_dir) if f.endswith('.tif')]
+    Set_name = input_dir_image[0].split("_")[0] + "_"    
     Set_name = Set_name if "S" in Set_name else ""
+    print ("Set_name=",Set_name)
     # the round that all other rounds are going to registered to !
     target_round = args.targetRound #"R2"
 
@@ -575,7 +579,7 @@ def main():
         paras.demo = False
         channels_range = []
         source_round_ls = []
-        for fileName in sorted(os.listdir(args.input_dir)):
+        for fileName in sorted(input_dir_image):
             if "tif" in fileName and "C" in fileName:
                 channel_id = fileName.split("C")[1].split(".")[0]
                 if channel_id not in channels_range:
@@ -594,7 +598,7 @@ def main():
         paras.demo = True
 
         source_round_ls = []
-        for fileName in sorted(os.listdir(args.input_dir))[:1]:
+        for fileName in sorted(input_dir_image)[:1]:
             if "tif" in fileName and "C" in fileName:
                 channel_id = fileName.split("C")[1].split(".")[0]
                 if channel_id not in channels_range:
