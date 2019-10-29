@@ -38,7 +38,6 @@ from skimage.filters import threshold_otsu
 
 import matplotlib.pyplot as plt
 import tifffile as tiff
-import multiprocessing
 from multiprocessing.pool import ThreadPool
 import warnings
 warnings.filterwarnings("ignore")
@@ -59,7 +58,7 @@ parser = argparse.ArgumentParser(description='***  Whole brain segentation pipel
                                              + '-w /data/xiaoyang/CHN50/Registered_Rebecca',
                                  formatter_class=argparse.RawTextHelpFormatter)
 
-parser.add_argument('-d', '--demo', default='T', type=str,
+parser.add_argument('-d', '--demo', default='F', type=str,
                     help=" 'T' only match channel 0, 'F' match all channels")
 parser.add_argument('-i', '--input_dir', 
                     default=r"D:\research in lab\dataset\50CHN\registration_demo\before",
@@ -144,9 +143,6 @@ class Paras(object):
     def set_max_trials(self, max_trials):
         self.max_trials = max_trials
 
-    def multiprocess(self, multiprocess):
-        self.multiprocess = multiprocess
-
     def set_tile_shape(self, tile_shape):
         self.tile_shape = tile_shape
 
@@ -220,7 +216,6 @@ def mini_register(target,source,paras,
                                                     max_trials          = paras.max_trials,
                                                     random_state        = paras.random_state,
                                                     spl_tile_ls = spl_tile_ls)      
-        print ("\t Final inliers%  =" , ( inliers.sum()/len(inliers)) *100 )
         
     if inliers is not None:
         print ("\t min-inliers%  =" , ( inliers.sum()/len(inliers)) *100 )
@@ -346,8 +341,8 @@ def registrationORB_tiled(targets, sources, paras, write_path, output_type="16bi
 #    plt.figure()
 #    plt.scatter(src[:,0] ,src[:,1] ,"r")
 #    plt.scatter(dst[:,0] ,dst[:,1] ,"g")
-    kps = (src, dst)
-#    model_robust01, inliers = skimage.measure.ransac( kps, ProjectiveTransform,
+#    kps = (src, dst)
+#    model_robust01, inliers = skimage.measure.ransac( (src, dst), ProjectiveTransform,
 #                                                min_samples         = paras.min_samples, 
 #                                                residual_threshold  = paras.residual_threshold,
 #                                                max_trials          = paras.max_trials,
@@ -361,9 +356,9 @@ def registrationORB_tiled(targets, sources, paras, write_path, output_type="16bi
                                                 ( int( tile_height/2), int( tile_width/2)))  
     
 
-    spl_tile_ls, spl_tile_dic = spl_tiled_data ( kps , exam_tileRange_ls, paras)
+    spl_tile_ls, spl_tile_dic = spl_tiled_data ( (src, dst) , exam_tileRange_ls, paras)
    
-    model_robust01, inliers = ransac_tile(kps, AffineTransform,
+    model_robust01, inliers = ransac_tile((src, dst), AffineTransform,
                                                 min_samples         = paras.min_samples, 
                                                 residual_threshold  = paras.residual_threshold,
                                                 max_trials          = paras.max_trials,
@@ -428,7 +423,6 @@ def registrationORB_tiled(targets, sources, paras, write_path, output_type="16bi
                 print (" Before : error:",error)      
                 vis_diff_resized = resize(vis_diff, (vis_diff.shape[0]  // 2 , vis_diff.shape[1] // 2) ,
                                                         mode = "constant")
-    
                 io.imsave(os.path.join(write_path, source_key.split(".")[0] + "-BeforeErr"+ '%.1f'%error+"%_diffVis.jpg"),
                             vis_diff_resized )                   
                                                        
@@ -453,7 +447,6 @@ def registrationORB_tiled(targets, sources, paras, write_path, output_type="16bi
                 if s_i == 0:   # Only get models from target0 source 0 
                     if reuse_kp == False:
                         model_mini = mini_register(target_tile,source_tile,paras)    # extract the model inverse map from CHN0        
-                    
                     else:
                         # load global keypoints
                         kp0_tile = select_keypointsInMask(keypoints0, (diff_label_final==mismatch_id))
@@ -506,7 +499,6 @@ def registrationORB_tiled(targets, sources, paras, write_path, output_type="16bi
             print("###########save vis")     
             vis, binary_diff,__,error,__= visfcts.eval_draw_diff (img_as_ubyte(target0),                                                            
                                                         img_as_ubyte(source_warped))              
-                        
             print (" After : error:",error)                    
             vis_resized = resize(vis, (vis.shape[0] // 2, vis.shape[1] // 2), mode ='constant')  
             io.imsave(os.path.join(write_path, source_key.split(".")[0] + "_registeredVis.jpg"),
