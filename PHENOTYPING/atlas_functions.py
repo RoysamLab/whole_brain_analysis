@@ -22,7 +22,7 @@ def pixel_to_micro_square(area_pixel, um_per_pixel=0.325):
     return area_pixel * (um_per_pixel**2)
 
 
-def count_per_normalized_area(count, area, normalized_area=1000, **kwargs):
+def count_per_normalized_area(count, area, normalized_area=10**6, **kwargs):
     """
     Count the cells of reagion in a normalized um^2 area (density per normalized area)
     :param count: count of cells in the region
@@ -245,32 +245,35 @@ def plot_table_heatmap(region_table):
     plt.show()
 
 
-def plot_atlas_heatmap(images_path, region_table, biomarker='NeuN'):
-    table = pd.read_csv(region_table, sep=',')
-    table.set_index('ID', inplace=True)
+def plot_atlas_heatmap(images_path, atlas_table_fname, biomarker='NeuN'):
 
-    heatmap_table = generate_regions_table(table)
-    heatmap_table['Area'] = ''
+    # read the atlas reagion table
+    atlas_table = pd.read_csv(atlas_table_fname, sep=',')
+    atlas_table.set_index('region', inplace=True)
 
+    # create a black image to build the heatmap on top of
     sample_image = [f for f in os.listdir(images_path) if '.tif' in f][0]
     image = imread(os.path.join(images_path, sample_image))
     image = np.zeros((image.shape[0], image.shape[1], 3), dtype=np.uint8)
 
-    bar = progressbar.ProgressBar(max_value=heatmap_table.shape[0])
+    # calculate the density of channel per region for color map -> get min and max for range
+    densities = np.array([count_per_normalized_area(r[biomarker], r['Area(px)']) for _, r in atlas_table.iterrows()])
+    cmap_min = np.min(densities)
+    cmap_max = np.max(densities)
+    norm = mpl.colors.Normalize(vmin=cmap_min, vmax=cmap_max)
+    cmap = cm.rainbow
+    m = cm.ScalarMappable(norm=norm, cmap=cmap)
 
-    for idx, (region, row) in enumerate(heatmap_table.iterrows()):
+    bar = progressbar.ProgressBar(max_value=atlas_table.shape[0])
+
+    # for each region color the binary image with coded color from colormap
+    for idx, (region, row) in enumerate(atlas_table.iterrows()):
 
         region_mask = imread(os.path.join(images_path, region+'.tif'))
         region_mask[region_mask != 0] = 1
 
-        heatmap_table.loc[region, 'Area'] = np.count_nonzero(region_mask)
-l
-        cmap_min = heatmap_table[biomarker].min() / 2600    # density per 10^4 pixel squared (hard-coded)
-        cmap_max = heatmap_table[biomarker].max() / 2600    # density per 10^4 pixel squared (hard-coded)
-        norm = mpl.colors.Normalize(vmin=cmap_min, vmax=cmap_max)
-        cmap = cm.rainbow
-        m = cm.ScalarMappable(norm=norm, cmap=cmap)
-        region_color = np.multiply(m.to_rgba(row[biomarker] / (np.count_nonzero(region_mask) / 10**4)), 255).astype(int)
+        region_density = count_per_normalized_area(row[biomarker], row['Area(px)'])
+        region_color = np.multiply(m.to_rgba(region_density), 255).astype(int)
 
         for i in range(3):
             image[:, :, i] += region_mask * region_color[i]
@@ -284,9 +287,10 @@ if __name__ == '__main__':
     images_path = r'D:\Jahandar\Paths\masks'
     output_dir = r'E:\50_plex\tif\pipeline2\classification_results\regions'
     label_all_cells = True
-    add_region_to_classification_table(class_table, images_path, output_dir, label_all_cells=label_all_cells)
+    # add_region_to_classification_table(class_table, images_path, output_dir, label_all_cells=label_all_cells)
 
-    region_table = r'E:\50_plex\tif\pipeline2\classification_results\regions\regions_table.csv'
-    for biom in ['S100', 'Olig2', 'Iba1', 'RECA1']:     # 'NeuN'
-        plot_atlas_heatmap(images_path, region_table, biomarker=biom)
+
+    atlas_table = r'E:\50_plex\tif\pipeline2\classification_results\regions\atlas_regions_table.csv'
+    for biom in ['NeuN', 'S100', 'Olig2', 'Iba1', 'RECA1']:
+        plot_atlas_heatmap(images_path, atlas_table, biomarker=biom)
     # plot_table_heatmap(region_table)
