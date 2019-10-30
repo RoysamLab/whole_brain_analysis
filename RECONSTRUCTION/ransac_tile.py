@@ -209,7 +209,6 @@ def ransac_tile(data, model_class, min_samples, residual_threshold,
         # do sample selection according data pairs
         samples = [d[spl_idxs] for d in data]
         # for next iteration choose random sample set and be sure that no samples repeat
-     
         spl_idxs = random_select_tile (spl_tile_ls, min_samples, crucial_id_tile_ls = crucial_id_tile_ls) 
         # optional check if random sample set is valid
         if is_data_valid is not None and not is_data_valid(*samples):
@@ -318,6 +317,8 @@ def ransac_tile(data, model_class, min_samples, residual_threshold,
     if best_inliers is not None:
         # select inliers for each data array
         data_inliers = [d[best_inliers] for d in data]
+        print ("Estimate the Best model")
+        del sample_model,data,sample_inlier_tile_perc,sample_model_residuals,sample_model_inliers
         best_model.estimate(*data_inliers)    
    
     return best_model, best_inliers

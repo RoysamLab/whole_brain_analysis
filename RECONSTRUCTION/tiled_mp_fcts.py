@@ -160,7 +160,6 @@ def match_descriptors_tiled (keypoints0,descriptors0,keypoints1,descriptors1,
 
 def transfromest_tiled(keypoints0,descriptors0,keypoints1,descriptors1, paras, tilerange_ls ,ck_shift):
     print (" \n''' 2. transform estimation and ransac''' ")
-#    paras.multiprocess = False
     if paras.multiprocess == False:  # use single process option
         src,dst = match_descriptors_tiled (keypoints0, descriptors0,
                                          keypoints1,descriptors1, 
@@ -172,9 +171,7 @@ def transfromest_tiled(keypoints0,descriptors0,keypoints1,descriptors1, paras, t
             numofthreads = int(paras.multiprocess)
         else:
             numofthreads = multiprocessing.cpu_count()
-            
-#    print("numofthreads = ", numofthreads)        
-     
+                 
         pool = ThreadPool(processes=numofthreads)
         ls_size = int(np.ceil(len(tilerange_ls)/numofthreads))
         print ("ls_size =",ls_size)
@@ -195,21 +192,16 @@ def transfromest_tiled(keypoints0,descriptors0,keypoints1,descriptors1, paras, t
         pool.close()        
         pool.join()
         # load results
-        model_robust01_inverse_ls = []
         src   = np.zeros((1, 2))
         dst   = np.zeros((1, 2))
-        inliers = np.zeros((1))
         for r in async_result:
             src         = np.concatenate((src    ,   r.get()[0] ), axis=0)
             dst         = np.concatenate((dst    ,   r.get()[1] ), axis=0)
 
-        print("\n[multiprocessing] featureextract_tiled: inliers.shape = ", inliers.shape)
-        print("\n[multiprocessing] featureextract_tiled: model_robust01_inverse_ls.shape = ", len(model_robust01_inverse_ls))
-
         src  = src[1:, :]
         dst  = dst[1:, :]
         
-        print("*" * 10 + " transfromest_tiled: = ", inliers.shape[0] )
+        print("*" * 10 + " transfromest_tiled: = ", src.shape[0] )
 
     return src,dst
 
@@ -228,9 +220,10 @@ def get_miss_mask (binary_diff, min_size = 5000):
             filled = filled*(filled!=obj.label) + obj.filled_image*obj.label    # background +  new filledImage
             masks_labels[ obj.bbox[0]:obj.bbox[2],   #i: i+crop_height
                           obj.bbox[1]:obj.bbox[3]] = filled
-            if obj.area /  ( ( obj.bbox[2]-obj.bbox[0] ) * (obj.bbox[3]-obj.bbox[1]) ) > 0.8:
-                masks_labels[ obj.bbox[0]:obj.bbox[2],   #i: i+crop_height
-                              obj.bbox[1]:obj.bbox[3]] = obj.label 
+#            # fill the bbox rectanglular area with
+#            if obj.area /  ( ( obj.bbox[2]-obj.bbox[0] ) * (obj.bbox[3]-obj.bbox[1]) ) > 0.8:
+#                masks_labels[ obj.bbox[0]:obj.bbox[2],   #i: i+crop_height
+#                              obj.bbox[1]:obj.bbox[3]] = obj.label 
 
     return masks_labels
         

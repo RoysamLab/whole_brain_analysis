@@ -129,7 +129,7 @@ class Paras(object):
         # other user defined paras:
         self.target_shape = (4000,8000)
         self.tile_shape = (400, 800)        
-        self.multiprocessing = False
+        self.multiprocess = False
         self.ck_shift = 100  # check window dilation width for seaching robust keypoint   # 50
         self.crop_overlap = 10  
         self.err_thres = 1.5
@@ -315,17 +315,18 @@ def registrationORB_tiled(targets, sources, paras, write_path, output_type="16bi
             np.save( os.path.join ( write_path, target0_key.split(".")[0] + "_descriptors1.npy"),descriptors1)   
             print ("EXTRACT KEYPOINTS have been saved")
     else:
-        keypoints0 = np.load( os.path.join ( paras.keypoint_dir, source0_key.split(".")[0] + "_keypoints0.npy"))
-        descriptors0 = np.load( os.path.join ( paras.keypoint_dir, source0_key.split(".")[0] + "_descriptors0.npy"))
-        keypoints1= np.load( os.path.join ( paras.keypoint_dir, target0_key.split(".")[0] + "_keypoints1.npy"))
-        descriptors1 = np.load( os.path.join ( paras.keypoint_dir, target0_key.split(".")[0] + "_descriptors1.npy"))    
+        keypoints0      = np.load( os.path.join ( paras.keypoint_dir, source0_key.split(".")[0] + "_keypoints0.npy"))
+        descriptors0    = np.load( os.path.join ( paras.keypoint_dir, source0_key.split(".")[0] + "_descriptors0.npy"))
+        keypoints1      = np.load( os.path.join ( paras.keypoint_dir, target0_key.split(".")[0] + "_keypoints1.npy"))
+        descriptors1    = np.load( os.path.join ( paras.keypoint_dir, target0_key.split(".")[0] + "_descriptors1.npy"))    
+        print ("keypoints0.shape=", keypoints0.shape, "keypoints1.shape = ",keypoints1.shape)
         print ("EXTRACT KEYPOINTS have been load from path")
 
     t_featureExtract_tiled = time.time()
     print("[Timer] featureExtract tiled used time (h) =", str((t_featureExtract_tiled - t_8bit) / 3600))
     
     # Match descriptors between target and source image
-    if paras.multiprocessing == False:
+    if paras.multiprocess == False:
         src,dst =  mpfcts.match_descriptors_tiled(keypoints0,descriptors0,
                                           keypoints1,descriptors1, 
                                           paras.target_shape, tileRange_ls ,
@@ -349,21 +350,20 @@ def registrationORB_tiled(targets, sources, paras, write_path, output_type="16bi
 #                                                random_state        = paras.random_state,
 #                                                )
 #    print ("\t Inital inliers%  =" , ( inliers.sum()/len(inliers)) *100 )
+    print ("num of mached desciptors =", len(src[:,0]))
 
-#%%
-  
+#%%  
     exam_tileRange_ls    = visfcts.crop_tiles(  ( img_rows,img_cols ),
                                                 ( int( tile_height/2), int( tile_width/2)))  
-    
-
     spl_tile_ls, spl_tile_dic = spl_tiled_data ( (src, dst) , exam_tileRange_ls, paras)
-   
+    print ("Ransac_tile: remove outliers" ) 
     model_robust01, inliers = ransac_tile((src, dst), AffineTransform,
                                                 min_samples         = paras.min_samples, 
                                                 residual_threshold  = paras.residual_threshold,
                                                 max_trials          = paras.max_trials,
                                                 random_state        = paras.random_state,
-                                                spl_tile_ls         = spl_tile_ls)      
+                                                spl_tile_ls         = spl_tile_ls,
+                                                verbose             = paras.demo)      
     print ("\t Final inliers%  =" , ( inliers.sum()/len(inliers)) *100 )
     
     ''' 3. Image Warping'''
@@ -374,6 +374,9 @@ def registrationORB_tiled(targets, sources, paras, write_path, output_type="16bi
     save_vis = True if paras.demo == True else False
     reuse_kp = True    # whether to reused keypoint for bootstrap region (not recommend, fast but poor align)
     bootstrap = True    # bootstrap on potential folded regions 
+
+    if paras.demo == False:
+        del src,dst,source0
 
     for s_i, source_key in enumerate( sorted ( sources.keys() )) :
         # if "C0" in s_key:
@@ -388,14 +391,13 @@ def registrationORB_tiled(targets, sources, paras, write_path, output_type="16bi
         
         if s_i == 0:                                      
             # merge diff regions
-
-            __, inital_diff,binary_target,error,error_map = visfcts.eval_draw_diff ( img_as_ubyte(target0),                                                            
-                                                                          img_as_ubyte(source) , exam_tileRange_ls)                   
-            if save_vis== True:
-                error_map_resized = resize(error_map, (error_map.shape[0]  // 2 , error_map.shape[1] // 2) ,
-                                                        mode = "constant")            
-                io.imsave(os.path.join(write_path, source_key.split(".")[0] + "-BeforeErrMap.jpg"),
-                            error_map_resized )    
+            __, inital_diff,binary_target,error,__ = visfcts.eval_draw_diff ( img_as_ubyte(target0),                                                            
+                                                                              img_as_ubyte(source_warped) )                   
+            # if save_vis== True:
+            #     error_map_resized = resize(error_map, (error_map.shape[0]  // 2 , error_map.shape[1] // 2) ,
+            #                                             mode = "constant")            
+            #     io.imsave(os.path.join(write_path, source_key.split(".")[0] + "-BeforeErrMap.jpg"),
+            #                 error_map_resized )    
             bootstrap_tileRange_ls = []
             for tileRange_key in spl_tile_dic.keys() :
                 tileRange = exam_tileRange_ls[tileRange_key]            #exam tile range (small)
@@ -405,13 +407,13 @@ def registrationORB_tiled(targets, sources, paras, write_path, output_type="16bi
                 crop_target0 = target0[ tileRange[0]:tileRange[2],   #i: i+crop_height
                                        tileRange[1]:tileRange[3]]   #j: j + crop_width                                                
                 crop_inital_diff = inital_diff[ tileRange[0]:tileRange[2],   #i: i+crop_height
-                                               tileRange[1]:tileRange[3]]   #j: j + crop_width    
+                                                tileRange[1]:tileRange[3]]   #j: j + crop_width    
                 crop_binary_target = binary_target[ tileRange[0]:tileRange[2],   #i: i+crop_height
                                        tileRange[1]:tileRange[3]]   #j: j + crop_width    
-                crop_error = crop_inital_diff.sum()/crop_binary_target.sum()* 100 
-                if ( crop_target0.mean() > target0_mean/4 and  crop_error> 1.2 and  inlier_rate < 0.4 and
+                crop_error_rate = crop_inital_diff.sum()/crop_binary_target.sum()* 100 
+                if ( crop_target0.mean() > target0_mean/4 and  crop_error_rate> 1.2 and  inlier_rate < 0.4 and
                       crop_inital_diff.sum() >  ( paras.tile_shape[0] *paras.tile_shape[1]/64 ) ):
-#                if ( len(inlier_tile) > paras.min_samples and inlier_rate < 0.3 and crop_error> 0.45):
+#                if ( len(inlier_tile) > paras.min_samples and inlier_rate < 0.3 and crop_error_rate> 0.45):
                     bootstrap_tileRange_ls.append(tileRange)                                    
             print ("bootstrap_tileRange_ls=",len(bootstrap_tileRange_ls))
             
@@ -448,6 +450,7 @@ def registrationORB_tiled(targets, sources, paras, write_path, output_type="16bi
                     if reuse_kp == False:
                         model_mini = mini_register(target_tile,source_tile,paras)    # extract the model inverse map from CHN0        
                     else:
+                      
                         # load global keypoints
                         kp0_tile = select_keypointsInMask(keypoints0, (diff_label_final==mismatch_id))
                         kp1_tile = select_keypointsInMask(keypoints1, (diff_label_final==mismatch_id))                   
@@ -541,8 +544,7 @@ def main():
     paras.set_n_keypoints(args.nKeypoint)
     paras.set_max_trials(args.maxtrials)
 
-    multiprocess = False if args.multiprocess.lower() in ["f", "0", "false"] else args.multiprocess
-    paras.multiprocess(multiprocess)
+    paras.multiprocess = False if args.multiprocess.lower() in ["f", "0", "false"] else args.multiprocess
     paras.keypoint_dir = args.keypoint_dir
     
     if "," in args.tiling:
