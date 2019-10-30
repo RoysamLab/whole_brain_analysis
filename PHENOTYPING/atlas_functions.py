@@ -98,39 +98,39 @@ def add_region_to_classification_table(table_filename, images_path, output_dir, 
     # make a list of tuples with regions
     region_area_list = []
 
-    # for each region
-    def process_region(image_fname):
-        # get region name
-        region_name, _ = os.path.splitext(image_fname)
-
-        # create binary image with region pixels
-        region_mask = imread(os.path.join(images_path, image_fname), plugin='tifffile')
-        region_mask[region_mask != 0] = 1
-
-        # create binary image with all centers
-        centers_mask = np.zeros_like(region_mask)
-        centers_mask[table['centroid_y'], table['centroid_x']] = 1
-
-        # multiplying region mask and centers mask will give the centers inside the region
-        region_centers_mask = np.multiply(region_mask, centers_mask)
-
-        # convert image to array
-        [center_y, center_x] = np.nonzero(region_centers_mask)
-        region_points = np.array([center_x, center_y]).transpose()
-
-        # find the index of points in the table
-        # python starts with 0 but ID (index) starts with 1 -> +1
-        region_idx = ismember_row(region_points, all_points)
-        region_idx += 1
-
-        # update the region column with the name of the region
-        table.loc[region_idx, 'region'] = region_name
-
-        # save number of pixels in each region in another file
-        region_area_list.append([region_name, np.count_nonzero(region_mask)])
-
-    with concurrent.futures.ThreadPoolExecutor() as executor:
-        tqdm(executor.map(process_region, image_files), total=len(image_files))
+    # # for each region
+    # def process_region(image_fname):
+    #     # get region name
+    #     region_name, _ = os.path.splitext(image_fname)
+    #
+    #     # create binary image with region pixels
+    #     region_mask = imread(os.path.join(images_path, image_fname), plugin='tifffile')
+    #     region_mask[region_mask != 0] = 1
+    #
+    #     # create binary image with all centers
+    #     centers_mask = np.zeros_like(region_mask)
+    #     centers_mask[table['centroid_y'], table['centroid_x']] = 1
+    #
+    #     # multiplying region mask and centers mask will give the centers inside the region
+    #     region_centers_mask = np.multiply(region_mask, centers_mask)
+    #
+    #     # convert image to array
+    #     [center_y, center_x] = np.nonzero(region_centers_mask)
+    #     region_points = np.array([center_x, center_y]).transpose()
+    #
+    #     # find the index of points in the table
+    #     # python starts with 0 but ID (index) starts with 1 -> +1
+    #     region_idx = ismember_row(region_points, all_points)
+    #     region_idx += 1
+    #
+    #     # update the region column with the name of the region
+    #     table.loc[region_idx, 'region'] = region_name
+    #
+    #     # save number of pixels in each region in another file
+    #     region_area_list.append([region_name, np.count_nonzero(region_mask)])
+    #
+    # with concurrent.futures.ThreadPoolExecutor() as executor:
+    #     tqdm(executor.map(process_region, image_files), total=len(image_files))
 
     for id, image_fname in enumerate(image_files):
         # get region name
@@ -174,12 +174,12 @@ def add_region_to_classification_table(table_filename, images_path, output_dir, 
 
     if label_all_cells:
         # for cells with no regions -> find closest cell and assign same region
-        with_region_points = table[~table['region'].isnull()].reset_index()
-        no_region_points = table[table['region'].isnull()].reset_index()
+        with_region_points = table[~(table['region'] == '')].reset_index()
+        no_region_points = table[table['region'] == ''].reset_index()
 
         tree = spatial.KDTree(with_region_points.loc[:, ['centroid_x', 'centroid_y']].values)
         _, closest_idx = tree.query(no_region_points.loc[:, ['centroid_x', 'centroid_y']].values)
-        table.loc[table['region'].isnull(), 'region'] = with_region_points.loc[closest_idx, 'region'].values
+        table.loc[table['region'] == '', 'region'] = with_region_points.loc[closest_idx, 'region'].values
 
         # # check
         # image_size = (29398, 43054)
@@ -206,7 +206,7 @@ def add_region_to_classification_table(table_filename, images_path, output_dir, 
     for region in region_area_list:
         regions_table.loc[region[0], 'Area(px)'] = region[1]
         regions_table.loc[region[0], 'Area(um)'] = pixel_to_micro_square(region[1])
-    regions_table['Area(um)'] = regions_table['Area(um)'].apply(lambda x: round(x, 2))
+    regions_table['Area(um)'] = regions_table['Area(um)'].astype(int)
     regions_table.to_csv(os.path.join(output_dir, 'atlas_regions_table.csv'))
 
     # save updated classification table with regions in output directory
@@ -264,7 +264,7 @@ def plot_atlas_heatmap(images_path, region_table, biomarker='NeuN'):
         region_mask[region_mask != 0] = 1
 
         heatmap_table.loc[region, 'Area'] = np.count_nonzero(region_mask)
-
+l
         cmap_min = heatmap_table[biomarker].min() / 2600    # density per 10^4 pixel squared (hard-coded)
         cmap_max = heatmap_table[biomarker].max() / 2600    # density per 10^4 pixel squared (hard-coded)
         norm = mpl.colors.Normalize(vmin=cmap_min, vmax=cmap_max)
