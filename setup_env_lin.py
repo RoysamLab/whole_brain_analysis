@@ -11,12 +11,13 @@ cmds = ['source activate brain',
         'conda install --yes scikit-learn',
         'conda install --yes -c conda-forge scikit-image',
         'conda install --yes -c conda-forge tifffile',
-        'pip install tensorflow-gpu==1.13.1',
+        'pip install tensorflow-gpu==1.9.0',
         'pip install cython',
         'pip install "git+https://github.com/philferriere/cocoapi.git#egg=pycocotools&subdirectory=PythonAPI"',
         'pip install progressbar2',
         'pip install requests',
         'pip install opencv-python',
+        'pip install keras==2.2.0',
         'conda deactivate']
 subprocess.call(' && '.join(cmds), shell=True)
 
