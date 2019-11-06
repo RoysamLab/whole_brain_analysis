@@ -20,12 +20,13 @@ if args.MODE == 'supervised':
 
 # for unsupervised
 if args.MODE == 'unsupervised':
-    parser.add_argument('--DEFAULT_CROP', type=int, nargs='+', default=[34000, 8000, 44000, 15000], help='[xmin, ymin, xmax, ymax]')
+    parser.add_argument('--DEFAULT_BOX', type=int, nargs='+', default=[34000, 8000, 44000, 15000], help='xmin ymin xmax ymax')
     parser.add_argument('--BRIGHTFIELD', type=int, default=None, help='int | None')
+    args, _ = parser.parse_known_args()
 
     # create script if not specified
     from RECONSTRUCTION.prepare_script import create_script
-    create_script(os.path.join(args.OUTPUT_DIR, 'script.csv'), args.INPUT_DIR, args.DEFAULT_CROP, brightfield=args.BRIGHTFIELD)
+    create_script(os.path.join(args.OUTPUT_DIR, 'script.csv'), args.INPUT_DIR, args.DEFAULT_BOX, brightfield=args.BRIGHTFIELD)
     parser.add_argument('--SCRIPT', type=str, default=os.path.join(args.OUTPUT_DIR, 'script.csv'), help='/path/to/script.csv')
 
 args = parser.parse_args()

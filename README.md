@@ -8,19 +8,19 @@
 2. Parse the arguments to  `main_reconstruction_*.py`:
   ```bash
   python main_reconstruction_lin.py \
-       --INPUT_DIR=/brazos/roysam/datasets/TBI/G2_Sham_Trained/G2_BR#22_HC_13L/original \
-       --OUTPUT_DIR=/brazos/roysam/datasets/TBI/G2_Sham_Trained/G2_BR#22_HC_13L \
-       --MODE=supervised \
-       --SCRIPT=scripts/20_plex.csv
+       --INPUT_DIR /brazos/roysam/datasets/TBI/G2_Sham_Trained/G2_BR#22_HC_13L/original \
+       --OUTPUT_DIR /brazos/roysam/datasets/TBI/G2_Sham_Trained/G2_BR#22_HC_13L \
+       --MODE supervised \
+       --SCRIPT scripts/20_plex.csv
   ```
 
   ```bash
   python main_reconstruction_lin.py \
-       --INPUT_DIR=/brazos/roysam/datasets/TBI/G2_Sham_Trained/G2_BR#22_HC_13L/original \
-       --OUTPUT_DIR=/brazos/roysam/datasets/TBI/G2_Sham_Trained/G2_BR#22_HC_13L \
-       --MODE=unsupervised \
-       --DEFAULT_BOX=[34000, 8000, 44000, 15000] \
-       --BRIGHTFIELD=11
+       --INPUT_DIR /brazos/roysam/datasets/TBI/G2_Sham_Trained/G2_BR#22_HC_13L/original \
+       --OUTPUT_DIR /brazos/roysam/datasets/TBI/G2_Sham_Trained/G2_BR#22_HC_13L \
+       --MODE unsupervised \
+       --DEFAULT_BOX 34000 8000 44000 15000 \
+       --BRIGHTFIELD 11
   ```
 
   __Arguments:__
