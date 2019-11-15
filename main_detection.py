@@ -5,6 +5,10 @@ import zipfile
 import argparse
 import requests
 
+import warnings
+warnings.filterwarnings('ignore',category=FutureWarning)
+
+
 parser = argparse.ArgumentParser()
 parser.add_argument('--INPUT_DIR', type=str, default=r'/path/to/input/dir', help='/path/to/input/dir')
 parser.add_argument('--OUTPUT_DIR', type=str, default=r'/path/to/output/dir', help='/path/to/output/dir')
