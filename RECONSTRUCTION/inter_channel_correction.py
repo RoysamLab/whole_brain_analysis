@@ -121,7 +121,7 @@ def inter_channel_correct_supervised(input_dir, output_dir, script_file):
         # read source roi
         src_roi = tifffile.imread(os.path.join(input_dir, src_name))
         src_roi = src_roi[ymin:ymax, xmin:xmax]
-	#TODO: fix memmap bug with offset=0
+        #TODO: fix memmap bug with offset=0
         # src_roi = tifffile.memmap(os.path.join(input_dir, src_name))
 
         # TODO: extend the noise channels to variable (not 3)
@@ -186,7 +186,7 @@ def inter_channel_correct_unsupervised(input_dir, output_dir, script_file):
 
     # run unmixing for each round
     for round_idx in rounds:
-        round_files = list(filter(lambda x: 'R' + str(round_idx) in x, files))
+        round_files = list(filter(lambda x: 'R' + str(round_idx) + 'C' in x, files))
 
         # get the default crop from first channel
         xmin, ymin, xmax, ymax = df.loc[df.index[0], ['xmin', 'ymin', 'xmax', 'ymax']]
