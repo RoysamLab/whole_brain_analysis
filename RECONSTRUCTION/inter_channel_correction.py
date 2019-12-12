@@ -119,10 +119,9 @@ def inter_channel_correct_supervised(input_dir, output_dir, script_file):
         xmin, ymin, xmax, ymax = src_info['xmin'], src_info['ymin'], src_info['xmax'], src_info['ymax']
 
         # read source roi
-        src_roi = tifffile.imread(os.path.join(input_dir, src_name))
-        src_roi = src_roi[ymin:ymax, xmin:xmax]
-        #TODO: fix memmap bug with offset=0
+        #TODO: fix memmap bug with offset is None
         # src_roi = tifffile.memmap(os.path.join(input_dir, src_name))
+        src_roi = tifffile.imread(os.path.join(input_dir, src_name))[ymin:ymax, xmin:xmax]
 
         # TODO: extend the noise channels to variable (not 3)
         # read noise rois
@@ -130,7 +129,9 @@ def inter_channel_correct_supervised(input_dir, output_dir, script_file):
         for i in range(3):
             channel_name = src_info['channel {}'.format(i + 1)]
             if channel_name == channel_name:  # is not NaN
-                n_rois[:, :, i] = tifffile.memmap(os.path.join(input_dir, channel_name))[ymin:ymax, xmin:xmax]
+                # TODO: fix memmap bug with offset is None
+                # n_rois[:, :, i] = tifffile.memmap(os.path.join(input_dir, channel_name))[ymin:ymax, xmin:xmax]
+                n_rois[:, :, i] = tifffile.imread(os.path.join(input_dir, channel_name))[ymin:ymax, xmin:xmax]
 
         # calculate unmixing parameters
         alphas = calculate_unmixing_params_supervised(src_roi, n_rois)
@@ -173,8 +174,8 @@ def inter_channel_correct_unsupervised(input_dir, output_dir, script_file):
     df = pd.read_csv(script_file, index_col='filename')
 
     # copy the files with no correction from input to output dir
-    for file in df.index[df['inter channel correction'] == 'No']:
-        copyfile(os.path.join(input_dir, file), os.path.join(output_dir, file))
+    # for file in df.index[df['inter channel correction'] == 'No']:
+        # copyfile(os.path.join(input_dir, file), os.path.join(output_dir, file))
 
     # new df for channels with correction
     df = df[df['inter channel correction'] == 'Yes']
@@ -192,10 +193,14 @@ def inter_channel_correct_unsupervised(input_dir, output_dir, script_file):
         xmin, ymin, xmax, ymax = df.loc[df.index[0], ['xmin', 'ymin', 'xmax', 'ymax']]
 
         # read ROIs
-        temp = tifffile.memmap(os.path.join(input_dir, round_files[0]))[ymin:ymax, xmin:xmax]
+        # TODO: fix memmap bug with offset is None
+        # temp = tifffile.memmap(os.path.join(input_dir, round_files[1]))[ymin:ymax, xmin:xmax]
+        temp = tifffile.imread(os.path.join(input_dir, round_files[1]))[ymin:ymax, xmin:xmax]
         rois = np.zeros((temp.shape[0], temp.shape[1], len(round_files)), dtype=temp.dtype)
         for i, filename in enumerate(round_files):
-            rois[:, :, i] = tifffile.memmap(os.path.join(input_dir, filename))[ymin:ymax, xmin:xmax]
+            # TODO: fix memmap bug with offset is None
+            # rois[:, :, i] = tifffile.memmap(os.path.join(input_dir, filename))[ymin:ymax, xmin:xmax]
+            rois[:, :, i] = tifffile.imread(os.path.join(input_dir, filename))[ymin:ymax, xmin:xmax]
 
         # calculate unmixing parameters using LASSO
         alphas = calculate_unmixing_params_unsupervised(rois)
