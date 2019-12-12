@@ -8,7 +8,6 @@ function errors = intra_channel_correction(input_dir, output_dir, varargin)
 % input_dir: /path/to/input/directory
 % output_dir: /path/to/output/directory
 % disk_size: size of the morphological disks (default = [20, 40])
-% brightfield: number of the brightfield channel
 % script_file: /path/to/csv/script/for/channels
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -29,24 +28,18 @@ elseif  nargin == 3
     script_table = create_script_table(input_dir);
     disk_size = varargin{1};
 elseif nargin == 4
-    script_table = create_script_table(input_dir);
     disk_size = varargin{1};
-    % remove brightfield channels from intra_channel_correction
-    brightfield = varargin{2};
-    script_table = remove_brightfield(script_table, brightfield);
-elseif nargin == 5
-    script_table = readtable(varargin{3});
-    disk_size = varargin{1};
+    script_table = readtable(varargin{2});
 end
 
 for i=1:size(script_table, 1)
-    
+
     % read image and get the histogram of the original image
     t_in = Tiff(fullfile(input_dir, script_table.filename{i}), 'r+');
     im = read(t_in);
     close(t_in);
-    
-    if strcmpi(script_table.intra_channel_correction{i}, 'yes')
+
+    if strcmpi(script_table.('intraChannelCorrection'){i}, 'yes')
         % calculate the background using morphological opening
         background = im;
         for j = 1:length(disk_size)
@@ -63,7 +56,7 @@ for i=1:size(script_table, 1)
         im = double(im);
         im = uint16(im - min(im(:)))*(65535 / (max(im(:)) - min(im(:))));
     end
-    
+
 % write image to disk
 write_bigtiff(im, fullfile(output_dir, script_table.filename{i}));
 
@@ -76,7 +69,7 @@ if nargin ~= 5
                'Delimiter',',');
 end
 
-% no error... 
+% no error...
 errors = 0;
 end
 
@@ -98,23 +91,11 @@ function script_table = create_script_table(input_dir)
 %    filename      intra_channel_correction
 %   ___________    ________________________
 %   'R1C0.tif'              'Yes'
-%   'R1C1.tif'              'Yes'          
-%   'R1C10.tif'             'Yes' 
+%   'R1C1.tif'              'Yes'
+%   'R1C10.tif'             'Yes'
 image_fnames = dir(fullfile(input_dir, '*.tif'));
 filename = {image_fnames(:).name}';
 intra_channel_correction = cell(size(filename, 1), 1);
 intra_channel_correction(:) = {'Yes'};
 script_table = table(filename, intra_channel_correction);
-end
-
-function script_table = remove_brightfield(script_table, brightfield)
-% remove brightfield channels from table like this
-%    filename      intra_channel_correction
-%   ___________    ________________________
-%   'R1C0.tif'              'Yes'
-%   'R1C1.tif'              'Yes'          
-%   'R1C10.tif'             'No'
-bf_channels = contains(script_table.filename, ...
-                       sprintf('C%i.tif', brightfield));
-script_table.intra_channel_correction(bf_channels) = {'No'};
 end

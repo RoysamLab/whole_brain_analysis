@@ -46,13 +46,13 @@ print('Registration pipeline finished successfully in {:d} hours, {:d} minutes a
 
 
 # INTRA CHANNEL CORRECTION
-ipnut_dir = os.path.join(args.OUTPUT_DIR, 'registered')
+input_dir = os.path.join(args.OUTPUT_DIR, 'registered')
 output_dir = os.path.join(args.OUTPUT_DIR, 'intra_corrected')
 disk_size = [20, 40]
 command = ' '.join(["matlab -nojvm -nosplash -nodesktop -wait -r",
-                    "\"addpath(fullfile(pwd, '1_PREPROCESSING'));",
-                    "intra_channel_correction('{}','{}',{}, {}, '{}'); quit\"".format(input_dir, output_dir, disk_size,
-                                                                                      args.BRIGHTFIELD, args.SCRIPT)])
+                    "\"addpath(fullfile(pwd, 'RECONSTRUCTION'));",
+                    "intra_channel_correction('{}','{}',{}, '{}'); quit\"".format(input_dir, output_dir, disk_size,
+                                                                                  args.SCRIPT)])
 start = time.time()
 p = subprocess.call(command, shell=True)
 duration = time.time() - start
