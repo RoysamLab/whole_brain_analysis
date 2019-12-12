@@ -15,7 +15,7 @@ parser.add_argument('--OUTPUT_DIR', type=str, default=r'/path/to/output/dir', he
 parser.add_argument('--DAPI', type=str, default='', help='/path/to/dapi.tif | None')
 parser.add_argument('--HISTONES', type=str, default='', help='/path/to/dapi.tif | None')
 
-args = parser.parse_args()
+args = parser.parse_known_args()[0]
 
 channels = {'DAPI': args.DAPI, 'Histones': args.HISTONES}
 
