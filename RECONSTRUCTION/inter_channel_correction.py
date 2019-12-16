@@ -48,6 +48,8 @@ def get_unmixing_channel_names_and_values(alphas, round_files):
             if len(script_rows_str[row_idx]) > 3:
                 script_rows_str[row_idx] = [fname for _, fname in sorted(zip(alphas[row_idx], round_files),
                                                                          reverse=True)[:3]]
+                script_rows_values[row_idx] = [value for value, _ in sorted(zip(alphas[row_idx], round_files),
+                                                                            reverse=True)[:3]]
         else:
             script_rows_str[row_idx] = [None] * 3
 
