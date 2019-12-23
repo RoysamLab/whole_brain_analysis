@@ -2,20 +2,39 @@
 """
 Input: 
 
-  [Read_dir]  : Root path contains:     
-    *datasetName*_Dataset_fromXLSX.xml   : 
-            The xml file contain dataset definition, channel definition and intensity image path  
+    [inputDir]  : Input Images directory
+    [maskType] :  input mask type options   
+            Opt1 detection bouding box:  "b"/"bbox"
+            Opt2 segmentation mask: "m"/"mask"
+    [maskDir]: mask directory
+            Opt1 bbox: *.txt
+                header contains: ['ID', 'centroid_x', 'centroid_y', 'xmin', 'ymin', 'xmax', 'ymax']
+            Opt2 mask: .out /.txt
+                segmentation lable mask array:  same size with image, delimited=','  
+    [xmlDir]: dataset definition file, contain dataset definition, channel definition and intensity image path  
             (Notice! All intensity images must be shown as the XML defined)      
-  [Maskfile]
-    [MaskType]
-        'bbox','mask'     
-    [maskfileName = Bbox_txt_name.txt] full path name of the bbox txt
-        ['ID', 'centroid_x', 'centroid_y', 'xmin', 'ymin', 'xmax', 'ymax']        
-    [maskfileName = MaskLabel.out] full path name of labeled image 
-        same size with image, delimited=','    
+            
+            Opt1: None
+                Look for  *datasetName*_Dataset_fromXLSX.xml  in the folder of inputDir
+            Opt2:  *datasetName*.xml
+                the full path of user defined dataset definition file
+            Opt3: *datasetName*.csv
+                the full path of user defined dataset definition file
+    [saveVis] 1/0 whether or not save the 8 bit image
+            save the downscaled images, recommend 1 for .ICE and .FCS, 0 for .FCS only
+    [downscaleRate] int >=1
+            'display_downscaleRate > 1 downscale, default = 1'
+            for FCSexpress like visulization software, we normally need to  downscale (e.g.4) to reduce the RAM cost
+         or else the software will crash
+    [seedSize]'size of seed to create bin mask
+            e.g when downscale Rate =4, seedSize = 2 for clear protion
+    [erosion_px] 'integer of pixel to shrink the bbox '
+            how much to shrink the bbox to get the smaller location of cells
+    [wholeCellDir] optional: run whole cell body segmentation on top of nuclear segmentation
+            
 
 Output: 
-  [Write_dir]: 
+  [output_dir]: 
     *datasetName*_.ice                     : ICE file with 8bit image as background
     *datasetName*__FeatureTableOnly.ice    : ICE file only with feature table
     *datasetName*__FeatureTable.bin        : ICE file supplement, since it could only recognize bin file
@@ -27,19 +46,31 @@ e.g.
     cd /brazos/roysam/xli63/exps/SegmentationPipeline/DataAnalysis
 
     data_dir="/brazos/roysam/50_plex/Set#1_S1"
-    write_dir="$data_dir"/ICE_FCS_files_cell_type_images_erosion5
-    mkdir "$write_dir"
+    output_dir="$data_dir"/ICE_FCS_files_cell_type_images_erosion5
+    mkdir "$output_dir"
 
     python GenerateICE_FCS_script.py \
     --inputDir="$data_dir"/cell_type_images \
     --maskType=b \
     --maskDir="$data_dir"/detection_results/bbxs_detection.txt \
-    --outputDir="$write_dir" \
+    --outputDir="$output_dir" \
     --saveVis=1 \
     --downscaleRate=4 \
     --seedSize=2 \
     --erosion_px=5 \
-    2>&1 | tee "$write_dir"/run-ICE-generate_bbox_erosion.txt
+    2>&1 | tee "$output_dir"/run-ICE-generate_bbox_erosion.txt
+
+
+    python GenerateICE_FCS_script.py \
+    --inputDir="/project/roysam/datasets/TBI/G2_Sham_Trained/G2_BR#22_HC_13L/final" \
+    --maskType=b \
+    --maskDir=/project/roysam/datasets/TBI/G2_Sham_Trained/G2_BR#22_HC_13L/detection_results/bbxs_detection.txt \
+    --outputDir=/project/roysam/datasets/TBI/G2_Sham_Trained/G2_BR#22_HC_13L/ICE \
+    --saveVis=1 \
+    --xmlDir="/project/roysam/datasets/TBI/20_plex.csv" \
+    --downscaleRate=4 \
+    --seedSize=2 \
+    --erosion_px=5 \
 
 
     [From mask]  
@@ -98,7 +129,7 @@ def save_mask2bin (maskBinName, label_img):
 
 def Write_FeatureTable (Read_img_file_Loc, maskfileName, Write_img_file_Loc = None, MaskType = 'bbox' ,
                         display_downscaleRate = 1, seedSize = 1, saveVis = False, mirror_y = True,erosion_px=0,
-                        wholeCellDir = None, xmlDir = None):
+                        wholeCellDir = None, xmlDir = '' ):
     ''' 
     Function: Write_FeatureTable
     Input: 
@@ -138,20 +169,27 @@ def Write_FeatureTable (Read_img_file_Loc, maskfileName, Write_img_file_Loc = No
     print ("maskfileName = ",  maskfileName )
 
     print ("    ''' Load Dataset definition'''")
-    if xmlDir is None:
-        DatesetDef_XML = extractFileNamesforType(Read_img_file_Loc, 'XLSX.xml')[0]
-        tree = ET.parse(os.path.join(Read_img_file_Loc,DatesetDef_XML))
-
-    else:
-        DatesetDef_XML = os.path.basename(xmlDir)
+    if ".xml" in xmlDir:
         tree = ET.parse(xmlDir)
-    
-    root = tree.getroot()
-    Images = root[0]
-    # Read one image to extract the size of image
-    Image_temp = Images.findall('Image')[0]
-    imreadName = Image_temp.find('FileName').text
+        root = tree.getroot()
+        Images = root[0]        
+        Image_temp = Images.findall('Image')[0]
+        imreadName = Image_temp.find('FileName').text  # Read one image to extract the size of image
+    elif ".csv" in xmlDir:
+        # Create xml structure from csv, for loading the channel definition later
+        DatesetDef_csv = pd.read_csv(xmlDir)
+        imreadName = DatesetDef_csv["filename"][0]    # Read one image to extract the size of image
+        Images = Element('Images')        
+        for i in range(DatesetDef_csv.shape[0]):
+            Image = SubElement(Images, 'Image')
+            biomarkerName = DatesetDef_csv["biomarker"][i]                   
+            Image.set('biomarker',biomarkerName) 
+            FileName = SubElement(Image, 'FileName')
+            FileName.set("CHNName", DatesetDef_csv["CHNName"][i])
+            FileName.text = DatesetDef_csv["filename"][i]
+        # import pdb; pdb.set_trace()
 
+    datasetName = os.path.basename(xmlDir).split('.')[0]  # storage the name to extract dataset name 
     image_temp = tiff.imread( os.path.join( Read_img_file_Loc, imreadName) )                      # 16bit
 
     print ("    ''' read xml done'''")
@@ -170,8 +208,7 @@ def Write_FeatureTable (Read_img_file_Loc, maskfileName, Write_img_file_Loc = No
 
     '''Load bbox (.txt) or mask ('.out') to write centroids '''
 
-    if ('.txt' in maskfileName) and ('b' in MaskType):
-        # Load bbox information
+    if ('.txt' in maskfileName) and ('b' in MaskType):        # Use bbox as input
         Bbox_headers = open(maskfileName).readline().split("\n")[0].split("\t")
         Bbox_txt     = np.loadtxt(maskfileName, skiprows=1)
         NumOfObj     = Bbox_txt.shape[0]
@@ -242,10 +279,9 @@ def Write_FeatureTable (Read_img_file_Loc, maskfileName, Write_img_file_Loc = No
             label_image_downscaled_vec.tofile(fout_mask)                       
             fout_mask.close()
             
-    elif ('.out' in maskfileName) or ('.txt' in maskfileName)and ('m' in MaskType):
+    elif ('.out' in maskfileName) or ('.txt' in maskfileName)and ('m' in MaskType): # Use mask as input
         if display_downscaleRate == 1 :      
             # save whole cell reconstruction             
-
             print ("wholeCellDir =============", wholeCellDir)
             if wholeCellDir is not None:    # make sure the label is the same the the seeds
                 for fName in os.listdir (wholeCellDir) :
@@ -391,7 +427,7 @@ def Write_FeatureTable (Read_img_file_Loc, maskfileName, Write_img_file_Loc = No
             # Featuretable[(biomarker +'__Sum') ] = Tol_intensity_ls
 
     '''Write Associative Feature table and Feature Table into csv....... for futher analysis /ICE '''
-    datasetName = DatesetDef_XML.split('Dat')[0]    
+      
     AssociativeFtable_FName = os.path.join( Write_img_file_Loc, datasetName + '_AssociativeFtable.csv' )
     AssociativeFtable.to_csv(AssociativeFtable_FName)
 
@@ -420,7 +456,7 @@ def Write_FeatureTable2bin(featureTable_FName):
         print ('featureTable bin file has written in', tableBinName)
 
 
-def GenerateICE(input_folder, output_folder, featureTable_FName = None,FeatureTableOnly = False):
+def GenerateICE(datasetName, output_folder, featureTable_FName = None,FeatureTableOnly = False):
     '''
     Function : GenerateICE
     Input:
@@ -443,8 +479,6 @@ def GenerateICE(input_folder, output_folder, featureTable_FName = None,FeatureTa
     
     ###################################  Read input files ###########################
     ''' Load Dataset definition'''
-    DatesetDef_XML = extractFileNamesforType(input_folder, 'XLSX.xml')[0]
-    datasetName = DatesetDef_XML.split('Dat')[0]
 
     #ParentLoc = os.path.dirname(os.getcwd())
     #input_folder = os.getcwd() +'\\' + 'ICE_Result\\'
@@ -717,10 +751,10 @@ if __name__== "__main__":
     parser.add_argument('--xmlDir', required= False,
                         metavar = "/path/to/xmlFeatureFile/",
                         default = None,
-                        help='localtion for xmlfile')          
+                        help='localtion for xmlfile or csv file, if not provide then default to localize the inputDir')          
     parser.add_argument('--saveVis', required= False,
                         type = int,
-                        default = 0,
+                        default = 1,
                         help= 'save8bit image for display or not, defalut = 0')          
     parser.add_argument('--downscaleRate', required= False,
                         type = int,
@@ -745,6 +779,11 @@ if __name__== "__main__":
     mask_type = 'bbox' if  args.maskType in ["b", "bbox"] else 'mask'
     print ("** mask_type = ", mask_type)
 
+    if args.xmlDir is None:
+        DatesetDef_path = extractFileNamesforType(args.inputDir, 'XLSX.xml')[0]
+    else:
+        DatesetDef_path =  args.xmlDir
+
     print ("** args.maskDir = ", args.maskDir)
     featureTable_FName, AssociativeFtable_FName = Write_FeatureTable ( Read_img_file_Loc       = args.inputDir , 
                                                     maskfileName            = args.maskDir  ,
@@ -755,7 +794,7 @@ if __name__== "__main__":
                                                     saveVis                 = bool(args.saveVis),                                                     
                                                     mirror_y                = True,
                                                     wholeCellDir            = args.wholeCellDir,
-                                                    xmlDir                  = args.xmlDir
+                                                    xmlDir                  = DatesetDef_path
                                                    )
     print ("Finish creating featureTable_FName = ", featureTable_FName,
                     "\t AssociativeFtable_FName= ", AssociativeFtable_FName)
@@ -764,9 +803,10 @@ if __name__== "__main__":
     
     # ice_filename1 = GenerateICE(input_folder = args.inputDir, output_folder = args.outputDir,  
     #                             featureTable_FName = featureTable_FName ,  FeatureTableOnly = True)
-    ice_filename2 = GenerateICE(input_folder = args.inputDir, output_folder = args.outputDir,  
+
+    datasetName = os.path.basename(DatesetDef_path).split('.')[0]
+    ice_filename2 = GenerateICE(datasetName = args.xmlDir, output_folder = args.outputDir,  
                                 featureTable_FName = featureTable_FName ,  FeatureTableOnly = False)   
-    
     print ("ICE has written in ", ice_filename2)
 
     GenerateFCS(csv_filename = featureTable_FName)
