@@ -1,4 +1,4 @@
-# WHOLE BRAIN ANALYSIS PIPELINE
+# WHOLE BRAIN ANALYSIS PIPELINE (Sabine cluster)
 
 ## 1. Reconstruction
 1. Specify your OS and select `main_reconstruction_lin.py` or `main_reconstruction_win.py`.
