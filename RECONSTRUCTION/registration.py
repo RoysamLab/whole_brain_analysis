@@ -42,7 +42,6 @@ from multiprocessing.pool import ThreadPool
 import warnings
 warnings.filterwarnings("ignore")
 import argparse
-
 from sklearn.neighbors import DistanceMetric
 
 import tiled_mp_fcts as mpfcts
@@ -58,10 +57,10 @@ parser = argparse.ArgumentParser(description='***  Whole brain segentation pipel
                                              + '-w /data/xiaoyang/CHN50/Registered_Rebecca',
                                  formatter_class=argparse.RawTextHelpFormatter)
 
-parser.add_argument('-d', '--demo', default='F', type=str,
+parser.add_argument('-d', '--demo', default='T', type=str,
                     help=" 'T' only match channel 0, 'F' match all channels")
 parser.add_argument('-i', '--input_dir', 
-                    default=r"D:\research in lab\dataset\50CHN\registration_demo\before",
+                    default=r"D:\research in lab\dataset\50CHN\registration_demo\demo",
                     help='Path to the directory of input images')
 parser.add_argument('-o', '--output_dir',
                     default=r"D:\research in lab\dataset\50CHN\registration_demo\after",
@@ -81,6 +80,8 @@ parser.add_argument('-mp', '--multiprocess', required=False, default="T", type=s
                     help=" 'T' multi processing, 'F' single processing")
 parser.add_argument('--imadjust', required=False, default = 'F',type = str, 
                         help='whether to adjust the image for feature extraction')    
+parser.add_argument('--bootstrap', required=False, default = 'T',type = str, 
+                        help='whether to adopt bootstrap to enhance registration')    
 parser.add_argument('--targetRound', required=False, default='R2', type=str,
                     help="keyword for target round")        
 # the smaller the tilling, longer the time, better the results
@@ -135,6 +136,7 @@ class Paras(object):
         self.err_thres = 1.5
         self.keypoint_dir = None
         self.demo = False
+        self.bootstrap = True
         
 
     def set_n_keypoints(self, n_keypoints):
@@ -164,6 +166,8 @@ class Paras(object):
         print("\tck_shift = ", self.ck_shift)
         print("\tcrop_overlap = ", self.crop_overlap)
         print("\tkeypoint_dir = ", self.keypoint_dir)
+        print("\tdemo = ", self.demo)
+        print("\tbootstrap = ", self.bootstrap)
 
 def spl_tiled_data (data, tileRange_ls ,paras):
     spl_tile_ls = []
@@ -235,7 +239,7 @@ def select_keypointsInMask(kp, binmask):
     return selected_kp
 
 
-def registrationORB_tiled(targets, sources, paras, write_path, output_type="16bit", input_type="16bit",
+def registrationORB_tiled(targets, sources, paras, output_dir, output_type="16bit", input_type="16bit",
                           save_target=True, 
                           keypoints1=None, descriptors1=None, imadjust = False, verbose =0):
     #%%
@@ -309,10 +313,10 @@ def registrationORB_tiled(targets, sources, paras, write_path, output_type="16bi
             keypoints1, descriptors1 = mpfcts.featureExtract_tiled(target0, paras, tileRange_ls)
         
         if paras.demo ==True:
-            np.save( os.path.join ( write_path, source0_key.split(".")[0] + "_keypoints0.npy"),keypoints0)
-            np.save( os.path.join ( write_path, source0_key.split(".")[0] + "_descriptors0.npy"),descriptors0)
-            np.save( os.path.join ( write_path, target0_key.split(".")[0] + "_keypoints1.npy"),keypoints1)
-            np.save( os.path.join ( write_path, target0_key.split(".")[0] + "_descriptors1.npy"),descriptors1)   
+            np.save( os.path.join ( output_dir, source0_key.split(".")[0] + "_keypoints0.npy"),keypoints0)
+            np.save( os.path.join ( output_dir, source0_key.split(".")[0] + "_descriptors0.npy"),descriptors0)
+            np.save( os.path.join ( output_dir, target0_key.split(".")[0] + "_keypoints1.npy"),keypoints1)
+            np.save( os.path.join ( output_dir, target0_key.split(".")[0] + "_descriptors1.npy"),descriptors1)   
             print ("EXTRACT KEYPOINTS have been saved")
     else:
         keypoints0      = np.load( os.path.join ( paras.keypoint_dir, source0_key.split(".")[0] + "_keypoints0.npy"))
@@ -320,7 +324,7 @@ def registrationORB_tiled(targets, sources, paras, write_path, output_type="16bi
         keypoints1      = np.load( os.path.join ( paras.keypoint_dir, target0_key.split(".")[0] + "_keypoints1.npy"))
         descriptors1    = np.load( os.path.join ( paras.keypoint_dir, target0_key.split(".")[0] + "_descriptors1.npy"))    
         print ("keypoints0.shape=", keypoints0.shape, "keypoints1.shape = ",keypoints1.shape)
-        print ("EXTRACT KEYPOINTS have been load from path")
+        print ("EXTRACT KEYPOINTS have been loaded from path")
 
     t_featureExtract_tiled = time.time()
     print("[Timer] featureExtract tiled used time (h) =", str((t_featureExtract_tiled - t_8bit) / 3600))
@@ -343,14 +347,14 @@ def registrationORB_tiled(targets, sources, paras, write_path, output_type="16bi
 #    plt.scatter(src[:,0] ,src[:,1] ,"r")
 #    plt.scatter(dst[:,0] ,dst[:,1] ,"g")
 #    kps = (src, dst)
-#    model_robust01, inliers = skimage.measure.ransac( (src, dst), ProjectiveTransform,
+#    model_robust01, inliers = skimage.measure.ransac( (src, dst), AffineTransform,
 #                                                min_samples         = paras.min_samples, 
 #                                                residual_threshold  = paras.residual_threshold,
 #                                                max_trials          = paras.max_trials,
 #                                                random_state        = paras.random_state,
 #                                                )
 #    print ("\t Inital inliers%  =" , ( inliers.sum()/len(inliers)) *100 )
-    print ("num of mached desciptors =", len(src[:,0]))
+    print ("num of matched desciptors =", len(src[:,0]))
 
 #%%  
     exam_tileRange_ls    = visfcts.crop_tiles(  ( img_rows,img_cols ),
@@ -373,10 +377,13 @@ def registrationORB_tiled(targets, sources, paras, write_path, output_type="16bi
     model_mini_dic = {}
     save_vis = True if paras.demo == True else False
     reuse_kp = True    # whether to reused keypoint for bootstrap region (not recommend, fast but poor align)
-    bootstrap = True    # bootstrap on potential folded regions 
+    bootstrap = paras.bootstrap    # bootstrap on potential folded regions 
 
     if paras.demo == False:
         del src,dst,source0
+        
+    if bootstrap == False:
+        del keypoints0, keypoints1, descriptors0,descriptors1
 
     for s_i, source_key in enumerate( sorted ( sources.keys() )) :
         # if "C0" in s_key:
@@ -396,7 +403,7 @@ def registrationORB_tiled(targets, sources, paras, write_path, output_type="16bi
             # if save_vis== True:
             #     error_map_resized = resize(error_map, (error_map.shape[0]  // 2 , error_map.shape[1] // 2) ,
             #                                             mode = "constant")            
-            #     io.imsave(os.path.join(write_path, source_key.split(".")[0] + "-BeforeErrMap.jpg"),
+            #     io.imsave(os.path.join(output_dir, source_key.split(".")[0] + "-BeforeErrMap.jpg"),
             #                 error_map_resized )    
             bootstrap_tileRange_ls = []
             for tileRange_key in spl_tile_dic.keys() :
@@ -423,9 +430,9 @@ def registrationORB_tiled(targets, sources, paras, write_path, output_type="16bi
             if save_vis == True:                         
                 vis_diff =  visfcts.differenceVis (inital_diff ,dst, inliers, bootstrap_tileRange_ls, diff_label_final )                        
                 print (" Before : error:",error)      
-                vis_diff_resized = resize(vis_diff, (vis_diff.shape[0]  // 2 , vis_diff.shape[1] // 2) ,
+                vis_diff_resized = resize(img_as_ubyte(vis_diff), (vis_diff.shape[0]  // 2 , vis_diff.shape[1] // 2) ,
                                                         mode = "constant")
-                io.imsave(os.path.join(write_path, source_key.split(".")[0] + "-BeforeErr"+ '%.1f'%error+"%_diffVis.jpg"),
+                io.imsave(os.path.join(output_dir, source_key.split(".")[0] + "-BeforeErr"+ '%.1f'%error+"%_diffVis.jpg"),
                             vis_diff_resized )                   
                                                        
         if diff_label_final.max() > 0 and bootstrap == True:            
@@ -486,11 +493,11 @@ def registrationORB_tiled(targets, sources, paras, write_path, output_type="16bi
 
         ### save source
         if output_type is "8bit":
-            tiff.imsave(os.path.join(write_path, source_key),
+            tiff.imsave(os.path.join(output_dir, source_key),
                         img_as_ubyte(source_warped), bigtiff= (paras.demo == False))  
         else:  # output_type is "16bit":
             print("\tsaving image as 16bit")
-            tiff.imsave(os.path.join(write_path, source_key),
+            tiff.imsave(os.path.join(output_dir, source_key),
                          img_as_uint(source_warped), bigtiff= (paras.demo == False))  
                  
         if s_i == 0 and save_vis == True:            
@@ -503,8 +510,9 @@ def registrationORB_tiled(targets, sources, paras, write_path, output_type="16bi
             vis, binary_diff,__,error,__= visfcts.eval_draw_diff (img_as_ubyte(target0),                                                            
                                                         img_as_ubyte(source_warped))              
             print (" After : error:",error)                    
-            vis_resized = resize(vis, (vis.shape[0] // 2, vis.shape[1] // 2), mode ='constant')  
-            io.imsave(os.path.join(write_path, source_key.split(".")[0] + "_registeredVis.jpg"),
+            vis_resized = resize(img_as_ubyte(vis), (vis.shape[0] // 2, vis.shape[1] // 2),
+                                 mode ='constant')  
+            io.imsave(os.path.join(output_dir, source_key.split(".")[0] + "_registeredVis.jpg"),
                          vis_resized)
             if bootstrap == False:
                 vis_diff =  visfcts.differenceVis (binary_diff ,dst, inliers,
@@ -513,9 +521,9 @@ def registrationORB_tiled(targets, sources, paras, write_path, output_type="16bi
                 vis_diff =  visfcts.differenceVis (binary_diff ,dst, inliers,
                                            bootstrap_tileRange_ls,diff_label_final)
                 
-            vis_diff_resized = resize(vis_diff, (vis.shape[0]  // 2 , vis.shape[1] // 2) ,
+            vis_diff_resized = resize(img_as_ubyte(vis_diff), (vis.shape[0]  // 2 , vis.shape[1] // 2) ,
                                                     mode = "constant")
-            io.imsave(os.path.join(write_path, source_key.split(".")[0] + "-Err"+ '%.1f'%error+"%_diffVis.jpg"),
+            io.imsave(os.path.join(output_dir, source_key.split(".")[0] + "-Err"+ '%.1f'%error+"%_diffVis.jpg"),
                         vis_diff_resized )
         
     t_warp = time.time()
@@ -546,16 +554,17 @@ def main():
 
     paras.multiprocess = False if args.multiprocess.lower() in ["f", "0", "false"] else args.multiprocess
     paras.keypoint_dir = args.keypoint_dir
-    
+    paras.bootstrap = str2bool( args.bootstrap)
+
     if "," in args.tiling:
         set_tile_shape = [int(s) for s in re.findall(r'\d+', args.tiling)]
         paras.set_tile_shape(set_tile_shape)
     elif args.tiling == []:
         paras.set_tile_shape([])  # no tiling, cautious might be extremely slow!
     # else is [defalut 400,600]    
-    write_path = args.output_dir
-    if os.path.exists(write_path) is False:
-        os.mkdir(write_path)        
+    output_dir = args.output_dir
+    if os.path.exists(output_dir) is False:
+        os.mkdir(output_dir)        
 
     assert args.outputType in ["16bit", "8bit"]
 
@@ -626,14 +635,14 @@ def main():
                 print("Read source image  ",source_fileName)
                 sources[source_fileName] =  source_fileDir
         # Run
-        if not os.path.exists(write_path):
-            os.makedirs(write_path)
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
         save_target = True if sr_i == 0 else False  # only save target files in the last round
         
 #%%
         if sr_i == 0:  # only need keypoint extraction for target for once
             keypoints1, descriptors1 = registrationORB_tiled(targets, sources, paras,                                                             
-                                                            write_path=write_path,
+                                                            output_dir=output_dir,
                                                             output_type=args.outputType,
                                                             input_type=args.inputType,
                                                             save_target=save_target,
@@ -641,7 +650,7 @@ def main():
                                                             )            
         else:
             _, _ = registrationORB_tiled(targets, sources, paras,
-                                        write_path=write_path,
+                                        output_dir=output_dir,
                                         output_type=args.outputType,
                                         input_type=args.inputType,
                                         save_target=save_target,
@@ -653,7 +662,7 @@ def main():
 
         
     print("\nRegistrationORB function finished!\n====================\n")
-    print("Result in ", write_path)
+    print("Result in ", output_dir)
 
     toc = time.time()
     print("total time is (h) =", str((toc - tic) / 3600))
