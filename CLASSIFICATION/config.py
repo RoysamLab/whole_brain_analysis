@@ -16,10 +16,10 @@ parser.add_argument('--RECA1', type=str, default='', help='<RECA1.tif> | None')
 
 # MODE -> train | test
 parser.add_argument('--mode', type=str, default='test', help='train or test')
-parser.add_argument('--run_name', type=str, default='run03', help='Run name')
+parser.add_argument('--run_name', type=str, default='7_channels', help='Run name')
 
 # Test Arguments
-parser.add_argument('--step_num', type=int, default=90959, help='model number to load (for test)')
+parser.add_argument('--step_num', type=int, default='0', help='model number to load (for test)')
 parser.add_argument('--model', type=str, default='original_capsule', help='original_capsule, matrix_capsule or vector_capsule')
 parser.add_argument('--test_mode', type=str, default='adjust', help='first | adjust -> generate or use y.h5 for inference')
 parser.add_argument('--thresholds', type=float, nargs='+', default=[.5, .5, .5, .5, .5],
