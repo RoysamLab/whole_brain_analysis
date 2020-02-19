@@ -51,13 +51,12 @@ from ransac_tile import ransac_tile
 #import matplotlib.pyplot as plt
 parser = argparse.ArgumentParser(description='***  Whole brain segentation pipeline on DAPI + Histone Channel ***'
                                              + '\ne.g\n'
-                                             + '\t$ python3 registrationORB_RANSIC.py  # run on whole brain \n '
-                                             + '\t$ python3 registrationORB_RANSIC.py -t T  '
-                                             + '-i /data/jjahanip/50_plex/stitched  '
-                                             + '-w /data/xiaoyang/CHN50/Registered_Rebecca',
+                                             + '\t$ python3 registration.py '
+                                             + '-i $INPUT_DIR'
+                                             + '-o $OUTPUT_DIR',
                                  formatter_class=argparse.RawTextHelpFormatter)
 
-parser.add_argument('-d', '--demo', default='T', type=str,
+parser.add_argument('-d', '--demo', default='False', type=str,
                     help=" 'T' only match channel 0, 'F' match all channels")
 parser.add_argument('-i', '--input_dir', 
                     default=r"D:\research in lab\dataset\50CHN\registration_demo\demo",
@@ -69,7 +68,7 @@ parser.add_argument('-ot', '--outputType', required=False, default="16bit", type
                     help='Save tif image type: "8bit" or "16bit"')
 parser.add_argument('-it', '--inputType', required=False, default="16bit", type=str,
                     help='Save tif image type: "8bit" or "16bit"')
-parser.add_argument('-nk', '--nKeypoint', required=False, default=300000, type=int,
+parser.add_argument('-nk', '--nKeypoint', required=False, default=200000, type=int,
                     help=" nKeypoint ")
 parser.add_argument('-kp_path', '--keypoint_dir', 
                     default= None,
@@ -167,7 +166,7 @@ class Paras(object):
         print("\tcrop_overlap = ", self.crop_overlap)
         print("\tkeypoint_dir = ", self.keypoint_dir)
         print("\tdemo = ", self.demo)
-        print("\tbootstrap = ", self.bootstrap)
+        print("\tbgBoost = ", self.bootstrap)
 
 def spl_tiled_data (data, tileRange_ls ,paras):
     spl_tile_ls = []
@@ -405,7 +404,7 @@ def registrationORB_tiled(targets, sources, paras, output_dir, output_type="16bi
             #                                             mode = "constant")            
             #     io.imsave(os.path.join(output_dir, source_key.split(".")[0] + "-BeforeErrMap.jpg"),
             #                 error_map_resized )    
-            bootstrap_tileRange_ls = []
+            bgBoost_tileRange_ls = []
             for tileRange_key in spl_tile_dic.keys() :
                 tileRange = exam_tileRange_ls[tileRange_key]            #exam tile range (small)
                 spl_tile =  spl_tile_dic[tileRange_key]
@@ -421,14 +420,14 @@ def registrationORB_tiled(targets, sources, paras, output_dir, output_type="16bi
                 if ( crop_target0.mean() > target0_mean/4 and  crop_error_rate> 1.2 and  inlier_rate < 0.4 and
                       crop_inital_diff.sum() >  ( paras.tile_shape[0] *paras.tile_shape[1]/64 ) ):
 #                if ( len(inlier_tile) > paras.min_samples and inlier_rate < 0.3 and crop_error_rate> 0.45):
-                    bootstrap_tileRange_ls.append(tileRange)                                    
-            print ("bootstrap_tileRange_ls=",len(bootstrap_tileRange_ls))
+                    bgBoost_tileRange_ls.append(tileRange)                                    
+            print ("bgBoost_tileRange_ls=",len(bgBoost_tileRange_ls))
             
             
-            diff_label_final = mpfcts. merge_diff_mask ( bootstrap_tileRange_ls, inital_diff,paras)
+            diff_label_final = mpfcts. merge_diff_mask ( bgBoost_tileRange_ls, inital_diff,paras)
             
             if save_vis == True:                         
-                vis_diff =  visfcts.differenceVis (inital_diff ,dst, inliers, bootstrap_tileRange_ls, diff_label_final )                        
+                vis_diff =  visfcts.differenceVis (inital_diff ,dst, inliers, bgBoost_tileRange_ls, diff_label_final )                        
                 print (" Before : error:",error)      
                 vis_diff_resized = resize(img_as_ubyte(vis_diff), (vis_diff.shape[0]  // 2 , vis_diff.shape[1] // 2) ,
                                                         mode = "constant")
@@ -472,7 +471,7 @@ def registrationORB_tiled(targets, sources, paras, output_dir, output_type="16bi
                         model_mini = mini_register(target_tile,source_tile,paras , 
                                                    kp0_crop,descriptors0[kp0_tile,:],
                                                    kp1_crop,descriptors1[kp1_tile,:]  )    # extract the model inverse map from CHN0    
-                    model_mini_dic[mismatch_id] = model_mini     # save the bootstrapped transform into dict
+                    model_mini_dic[mismatch_id] = model_mini     # save the bootstrap transform into dict
                     
                 if model_mini_dic[mismatch_id]  is not None:  # only update when the model has been found                   
                     ## clear the old registered result       
@@ -519,7 +518,7 @@ def registrationORB_tiled(targets, sources, paras, output_dir, output_type="16bi
                                            tileRange_ls,diff_label_final)
             else:                
                 vis_diff =  visfcts.differenceVis (binary_diff ,dst, inliers,
-                                           bootstrap_tileRange_ls,diff_label_final)
+                                           bgBoost_tileRange_ls,diff_label_final)
                 
             vis_diff_resized = resize(img_as_ubyte(vis_diff), (vis.shape[0]  // 2 , vis.shape[1] // 2) ,
                                                     mode = "constant")
