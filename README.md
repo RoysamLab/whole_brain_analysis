@@ -129,20 +129,31 @@ Parse the arguments to  `main_classification.py`:
     --OLIG2 S1_R1C9.tif \
     --IBA1 S1_R1C5.tif \
     --RECA1 S1_R1C6.tif \
-    --test_mode first \
+    --test_mode first \   
+    
     ```
-  - __if you want to adjust the classification results based on new thresholds:__
+    
+## 4. ICE/FCS Conversion
+Instead of generate the classification automaticly, use ICE to apply real time gating for phenotyping.
+Need to have bounding box or segmentation mask as an input
+  - `INPUT_DIR` : Path to the directory containing input images
+  - `OUTPUT_DIR` : Path to the directory saving output images
+  - `maskType`: Cell detection inputs `mask` or `bbox`
+  - `CHNDEF`: dataset definition .csv file
+  - `downscaleRate`: for FCSexpress like visulization software,downscale the image to avoid crashing
+  - `seedSize`: size of nuclear seed objects
+  - `erosion_px`: pixel to shrink the bbox to focus on nuclear
+
+Parse the arguments to  `GenerateICE_FCS_script.py`:
+  - From bbox
     ```bash
-    --INPUT_DIR /brazos/roysam/datasets/TBI/G2_Sham_Trained/G2_BR#22_HC_13L/original \
-    --OUTPUT_DIR /brazos/roysam/datasets/TBI/G2_Sham_Trained/G2_BR#22_HC_13L/classification_results \
-    --BBXS_FILE /brazos/roysam/datasets/TBI/G2_Sham_Trained/G2_BR#22_HC_13L/detection_results/bbxs_detection.txt \
-    --DAPI S1_R2C1.tif \
-    --HISTONES S1_R2C2.tif \
-    --NEUN S1_R2C4.tif \
-    --S100 S1_R3C5.tif \
-    --OLIG2 S1_R1C9.tif \
-    --IBA1 S1_R1C5.tif \
-    --RECA1 S1_R1C6.tif \
-    --test_mode adjust \
-    --thresholds .5 .5 .5 .8 .5
+    python PHENOTYPING/GenerateICE_FCS_script.py \
+    --INPUT_DIR="/project/roysam/datasets/TBI/G2_Sham_Trained/G2_BR#22_HC_13L/final" \
+    --OUTPUT_DIR=/project/roysam/datasets/TBI/G2_Sham_Trained/G2_BR#22_HC_13L/ICE \
+    --maskType="b" \
+    --maskDir=/project/roysam/datasets/TBI/G2_Sham_Trained/G2_BR#22_HC_13L/detection_results/bbxs_detection.txt \
+    --CHNDEF="/project/roysam/datasets/TBI/20_plex.csv" \
+    --downscaleRate=4 \  
+    --seedSize=2 \
+    --erosion_px=5 \
     ```
