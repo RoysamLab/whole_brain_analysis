@@ -21,7 +21,7 @@ parser.add_argument('--run_name', type=str, default='7_channels', help='Run name
 # Test Arguments
 parser.add_argument('--step_num', type=int, default='0', help='model number to load (for test)')
 parser.add_argument('--model', type=str, default='original_capsule', help='original_capsule, matrix_capsule or vector_capsule')
-parser.add_argument('--test_mode', type=str, default='adjust', help='first | adjust -> generate or use y.h5 for inference')
+parser.add_argument('--test_mode', type=str, default='first', help='first | adjust -> generate or use y.h5 for inference')
 parser.add_argument('--thresholds', type=float, nargs='+', default=[.5, .5, .5, .5, .5],
                     help='[NeuN_thres, S100_thresh, Olig2_thresh, Iba1_thresh, RECA1_thresh] for adjust test_mode')
 

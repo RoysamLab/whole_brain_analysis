@@ -321,28 +321,6 @@ class BaseModel(object):
         print('precentage of uncategorized cells: {:.2%}'.format((len(neg_samples) / len(self.data_reader.bbxs))))
         y_pred[neg_samples, :] = np.zeros((y_pred.shape[1]))
 
-        # for paper
-        # import matplotlib.pyplot as plt
-        # biomarkers = ['NeuN', 'S100', 'Olig2', 'Iba1', 'RECA1']
-        # for i, bioM in enumerate(biomarkers):
-        #     plt.figure(figsize=(10, 6.5))
-        #     plt.hist(y_prob[:, i], bins=1000, histtype='step', color='k')
-        #     plt.xlabel('{} probability'.format(bioM), fontsize=20, weight='bold')
-        #     plt.ylabel('Count', fontsize=20, weight='bold')
-        #     plt.xticks(fontsize=20, weight='bold')
-        #     plt.yticks(fontsize=20, weight='bold')
-        #     plt.ylim((0, 3000))
-        #     plt.savefig('figs/50_plex/final/{}.png'.format(bioM), dpi=300)
-        #     plt.show()
-        ###########################################################################
-        # ints = np.array([np.mean(self.data_reader.x_test[:, :, :, ch + 2], axis=(1, 2)) for ch in range(5)])
-        # for i, bioM in enumerate(biomarkers):
-        #     plt.figure(figsize=(10, 6.5))
-        #     hist, bins, _ = plt.hist(ints[:, i], bins=65535)
-        #     logbins = np.logspace(np.log10(bins[0]), np.log10(bins[-1]), len(bins))
-        #     plt.hist(ints[:, i], bins=logbins, histtype='step', color='k')
-        # plt.show()
-
         # generate classification and proability table
         self.data_reader.generate_classification_table(y_pred)
 

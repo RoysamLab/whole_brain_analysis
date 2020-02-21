@@ -101,15 +101,48 @@
   - __if only DAPI:__
     ```bash
     python main_detection.py \
-       --INPUT_DIR=/brazos/roysam/datasets/TBI/G2_Sham_Trained/G2_BR#22_HC_13L/original \
-       --OUTPUT_DIR=/brazos/roysam/datasets/TBI/G2_Sham_Trained/G2_BR#22_HC_13L/detection_results \
-       --DAPI=R2C1.tif
+       --INPUT_DIR /brazos/roysam/datasets/TBI/G2_Sham_Trained/G2_BR#22_HC_13L/original \
+       --OUTPUT_DIR /brazos/roysam/datasets/TBI/G2_Sham_Trained/G2_BR#22_HC_13L/detection_results \
+       --DAPI R2C1.tif
     ```
   - __if DAPI + Histones:__
     ```bash
     python main_detection.py \
-       --INPUT_DIR=/brazos/roysam/datasets/TBI/G2_Sham_Trained/G2_BR#22_HC_13L/original \
-       --OUTPUT_DIR=/brazos/roysam/datasets/TBI/G2_Sham_Trained/G2_BR#22_HC_13L/detection_results \
-       --DAPI=R2C1.tif \
-       --HISTONES=R2C2.tif
+       --INPUT_DIR /brazos/roysam/datasets/TBI/G2_Sham_Trained/G2_BR#22_HC_13L/original \
+       --OUTPUT_DIR /brazos/roysam/datasets/TBI/G2_Sham_Trained/G2_BR#22_HC_13L/detection_results \
+       --DAPI R2C1.tif \
+       --HISTONES R2C2.tif
+    ```
+
+## 3. Classification
+Parse the arguments to  `main_classification.py`:
+  - __if first time classifying:__
+    ```bash
+    python main_classification.py \
+    --INPUT_DIR /brazos/roysam/datasets/TBI/G2_Sham_Trained/G2_BR#22_HC_13L/original \
+    --OUTPUT_DIR /brazos/roysam/datasets/TBI/G2_Sham_Trained/G2_BR#22_HC_13L/classification_results \
+    --BBXS_FILE /brazos/roysam/datasets/TBI/G2_Sham_Trained/G2_BR#22_HC_13L/detection_results/bbxs_detection.txt \
+    --DAPI S1_R2C1.tif \
+    --HISTONES S1_R2C2.tif \
+    --NEUN S1_R2C4.tif \
+    --S100 S1_R3C5.tif \
+    --OLIG2 S1_R1C9.tif \
+    --IBA1 S1_R1C5.tif \
+    --RECA1 S1_R1C6.tif \
+    --test_mode first \
+    ```
+  - __if you want to adjust the classification results based on new thresholds:__
+    ```bash
+    --INPUT_DIR /brazos/roysam/datasets/TBI/G2_Sham_Trained/G2_BR#22_HC_13L/original \
+    --OUTPUT_DIR /brazos/roysam/datasets/TBI/G2_Sham_Trained/G2_BR#22_HC_13L/classification_results \
+    --BBXS_FILE /brazos/roysam/datasets/TBI/G2_Sham_Trained/G2_BR#22_HC_13L/detection_results/bbxs_detection.txt \
+    --DAPI S1_R2C1.tif \
+    --HISTONES S1_R2C2.tif \
+    --NEUN S1_R2C4.tif \
+    --S100 S1_R3C5.tif \
+    --OLIG2 S1_R1C9.tif \
+    --IBA1 S1_R1C5.tif \
+    --RECA1 S1_R1C6.tif \
+    --test_mode adjust \
+    --thresholds .5 .5 .5 .8 .5
     ```
