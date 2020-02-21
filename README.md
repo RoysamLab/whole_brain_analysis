@@ -1,6 +1,47 @@
-# WHOLE BRAIN ANALYSIS PIPELINE (Sabine cluster)
+# WHOLE BRAIN ANALYSIS PIPELINE
+This pipeline is for processing multispectral fluorescence 2D image datasets.
+It will correct the acquired images for:
+- Pixel-to-pixel registration due to stage misalignemnt between rounds
+- Intra-channel non-specific signal correction of autofluorescence, 
+non-uniform illumianation shading, Photo-pleaching and tissue folds
+- Inter-channel non-specific signal correction of spectral bleed-through 
+and molecular co-localization
+
+And generate quantitative readouts for each cell including:
+- Cell nuclei location
+- Cell type
+- Cell status
+
+## Setup:
+Whole brain analysis pipeline depends on the following python libraries:
+- numpy
+- scipy
+- pandas
+- cython
+- requests
+- progressbar
+- scikit-learn
+- scikit-image
+- tifffile
+- opencv-python
+- tensorflow-gpu==1.9.0
+- pycocotools
+- keras == 2.2.0
+
+`setup_env_lin.py` creates a conda environment (`brain`) and installs the requird libraries.
+
+__Note:__ tensorflow-gpu library requires __CUDA toolkit 9.0__ and __cuDNN 7.0.5__. 
+You can follow the instructions from [here](https://github.com/easy-tensorflow/easy-tensorflow/tree/master/0_Setup_TensorFlow) to install the TensorFlow and dependencies.
+
+For __detection__ module you need to install __protoc__. Download executable from [here](https://github.com/google/protobuf/releases) and run the following command from
+`DETECTION/lib` directory [(read more)](https://github.com/tensorflow/models/blob/master/research/object_detection/g3doc/installation.md#protobuf-compilation):
+``` bash
+# from DETECTION/lib
+protoc object_detection/protos/*.proto --python_out=.
+```
 
 ## 1. Reconstruction
+
 1. Specify your OS and select `main_reconstruction_lin.py` or `main_reconstruction_win.py`.
 
     __Notice__: You need __Matlab__ for windows.
@@ -90,14 +131,7 @@
       R2C9.tif |CD31        |Yes                     |No                      |         |         |         |34000|8000 |44000|15000
  
 ## 2. Detection
-1. __setup__:
-    - Download executable from [here](https://github.com/google/protobuf/releases) and run the following command from
-     ```lib``` directory [(read more)](https://github.com/tensorflow/models/blob/master/research/object_detection/g3doc/installation.md#protobuf-compilation):
-    ``` bash
-    # from DETECTION/lib
-    protoc object_detection/protos/*.proto --python_out=.
-    ```
-2. Parse the arguments to  `main_detection.py`:
+Parse the arguments to  `main_detection.py`:
   - __if only DAPI:__
     ```bash
     python main_detection.py \
@@ -129,20 +163,28 @@ Parse the arguments to  `main_classification.py`:
     --OLIG2 S1_R1C9.tif \
     --IBA1 S1_R1C5.tif \
     --RECA1 S1_R1C6.tif \
-    --test_mode first \   
-    
+    --test_mode first  
+    ```
+  - __if you want to adjust the classification results based on new thresholds:__
+    ```bash
+    --INPUT_DIR /brazos/roysam/datasets/TBI/G2_Sham_Trained/G2_BR#22_HC_13L/original \
+    --OUTPUT_DIR /brazos/roysam/datasets/TBI/G2_Sham_Trained/G2_BR#22_HC_13L/classification_results \
+    --BBXS_FILE /brazos/roysam/datasets/TBI/G2_Sham_Trained/G2_BR#22_HC_13L/detection_results/bbxs_detection.txt \
+    --DAPI S1_R2C1.tif \
+    --HISTONES S1_R2C2.tif \
+    --NEUN S1_R2C4.tif \
+    --S100 S1_R3C5.tif \
+    --OLIG2 S1_R1C9.tif \
+    --IBA1 S1_R1C5.tif \
+    --RECA1 S1_R1C6.tif \
+    --test_mode adjust \
+    --thresholds .5 .5 .5 .8 .5
     ```
     
-## 4. ICE/FCS Conversion
-Instead of generate the classification automaticly, use ICE to apply real time gating for phenotyping.
-Need to have bounding box or segmentation mask as an input
-  - `INPUT_DIR` : Path to the directory containing input images
-  - `OUTPUT_DIR` : Path to the directory saving output images
-  - `maskType`: Cell detection inputs `mask` or `bbox`
-  - `CHNDEF`: dataset definition .csv file
-  - `downscaleRate`: for FCSexpress like visulization software,downscale the image to avoid crashing
-  - `seedSize`: size of nuclear seed objects
-  - `erosion_px`: pixel to shrink the bbox to focus on nuclear
+## 4. ICE/FCS File Generation
+You can update the classification table by using `.fcs` or `.ice` files in [FCS Express](https://denovosoftware.com/) or 
+ [Kaluza](https://www.beckman.com/flow-cytometry/software/kaluza) software to apply real time gating for phenotyping. 
+Using bounding boxes generated from detection module you can generate `.fcs` and `.ice` files.
 
 Parse the arguments to  `GenerateICE_FCS_script.py`:
   - From bbox
@@ -155,5 +197,13 @@ Parse the arguments to  `GenerateICE_FCS_script.py`:
     --CHNDEF=/project/roysam/datasets/TBI/20_plex.csv \
     --downscaleRate=4 \  
     --seedSize=2 \
-    --erosion_px=5 \
+    --erosion_px=5
     ```
+__Arguments:__
+- `INPUT_DIR` : Path to the directory containing input images
+- `OUTPUT_DIR` : Path to the directory saving output images
+- `maskType`: Cell detection inputs `mask` or `bbox`
+- `CHNDEF`: dataset definition .csv file
+- `downscaleRate`: for FCSexpress like visulization software,downscale the image to avoid crashing
+- `seedSize`: size of nuclear seed objects
+- `erosion_px`: pixel to shrink the bbox to focus on nuclear
