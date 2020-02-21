@@ -11,15 +11,16 @@ Input:
                 header contains: ['ID', 'centroid_x', 'centroid_y', 'xmin', 'ymin', 'xmax', 'ymax']
             Opt2 mask: .out /.txt
                 segmentation lable mask array:  same size with image, delimited=','  
-    [xmlDir]: dataset definition file, contain dataset definition, channel definition and intensity image path  
-            (Notice! All intensity images must be shown as the XML defined)      
-            
+    [chnDef]: dataset definition file, contain dataset definition, channel definition and intensity image path ralative to input_dir  
+            (Notice! All intensity images must be shown as the XML defined)             
+
             Opt1: None
                 Look for  *datasetName*_Dataset_fromXLSX.xml  in the folder of inputDir
             Opt2:  *datasetName*.xml
                 the full path of user defined dataset definition file
             Opt3: *datasetName*.csv
                 the full path of user defined dataset definition file
+
     [saveVis] 1/0 whether or not save the 8 bit image
             save the downscaled images, recommend 1 for .ICE and .FCS, 0 for .FCS only
     [downscaleRate] int >=1
@@ -50,27 +51,25 @@ e.g.
     mkdir "$output_dir"
 
     python GenerateICE_FCS_script.py \
-    --inputDir="$data_dir"/cell_type_images \
-    --maskType=b \
-    --maskDir="$data_dir"/detection_results/bbxs_detection.txt \
-    --outputDir="$output_dir" \
-    --saveVis=1 \
-    --downscaleRate=4 \
-    --seedSize=2 \
-    --erosion_px=5 \
-    2>&1 | tee "$output_dir"/run-ICE-generate_bbox_erosion.txt
+        --inputDir="$data_dir"/cell_type_images \
+        --maskType=b \
+        --maskDir="$data_dir"/detection_results/bbxs_detection.txt \
+        --outputDir="$output_dir" \
+        --downscaleRate=4 \
+        --seedSize=2 \
+        --erosion_px=5 \
+        2>&1 | tee "$output_dir"/run-ICE-generate_bbox_erosion.txt
 
 
     python GenerateICE_FCS_script.py \
-    --inputDir="/project/roysam/datasets/TBI/G2_Sham_Trained/G2_BR#22_HC_13L/final" \
-    --maskType=b \
-    --maskDir=/project/roysam/datasets/TBI/G2_Sham_Trained/G2_BR#22_HC_13L/detection_results/bbxs_detection.txt \
-    --outputDir=/project/roysam/datasets/TBI/G2_Sham_Trained/G2_BR#22_HC_13L/ICE \
-    --saveVis=1 \
-    --xmlDir="/project/roysam/datasets/TBI/20_plex.csv" \
-    --downscaleRate=4 \
-    --seedSize=2 \
-    --erosion_px=5 \
+        --inputDir="/project/roysam/datasets/TBI/G2_Sham_Trained/G2_BR#22_HC_13L/final" \
+        --maskType=b \
+        --maskDir=/project/roysam/datasets/TBI/G2_Sham_Trained/G2_BR#22_HC_13L/detection_results/bbxs_detection.txt \
+        --outputDir=/project/roysam/datasets/TBI/G2_Sham_Trained/G2_BR#22_HC_13L/ICE \
+        --chnDef="/project/roysam/datasets/TBI/20_plex.csv" \
+        --downscaleRate=4 \
+        --seedSize=2 \
+        --erosion_px=5 \
 
 
     [From mask]  
@@ -94,22 +93,81 @@ import os
 import xml.etree.ElementTree as ET
 from xml.etree.ElementTree import tostring, Element, SubElement, Comment
 from xml.dom import minidom
-import cv2,skimage
+import skimage
 import struct
 import pandas as pd
 import numpy as np
-from skimage import io,transform,morphology
-from skimage.exposure import rescale_intensity
+from skimage import io,transform,morphology,exposure
 from PIL import Image as Img
-import tifffile as tiff
-
 import warnings
+import h5py
+from skimage.external import tifffile as tiff
+
 warnings.filterwarnings("ignore")
 
-def img_adjust(image) :
-    p2, p98     = np.percentile(image, (2, 98))
-    image  = rescale_intensity(image , in_range=(p2, p98))
-    return image
+import argparse,time
+# Parse command line arguments
+parser = argparse.ArgumentParser(
+    description='****  Whole brain segentation pipeline: FCS / ICE file generator ******' +
+    '\ne.g\n' ,
+    formatter_class=argparse.RawTextHelpFormatter)
+    
+parser.add_argument('--inputDir', required=False,
+                    metavar = "/path/to/dataset/",
+                    default = "/data/xiaoyang/10_plex_stroke_rat/",
+                    help='Directory of inputs, default = "/data/xiaoyang/10_plex_stroke_rat/"')                
+parser.add_argument('--maskType', required= False,                        
+                    default = "b",
+                    help='Mask type: "b"/"bbox","m"/"mask", default = "bbox" ')                
+parser.add_argument('--maskDir', required= False,
+                    default = '/data/xiaoyang/10_plex_stroke_rat/detection_results/bbxs_detection.txt',
+                    help='Full Path name of mask.out/bbox.txt, default = "/data/xiaoyang/10_plex_stroke_rat/detection_results/bbxs_detection.txt" ')
+parser.add_argument('--outputDir', required= False,
+                    metavar = "/path/to/maskfile/",
+                    default = '/data/xiaoyang/10_plex_stroke_rat/',
+                    help='Root directory for the results, default = "/data/xiaoyang/10_plex_stroke_rat/" ')                        
+parser.add_argument('--chnDef', required= False,
+                    metavar = "/path/to/xmlFeatureFile/",
+                    default = None,
+                    help='localtion for xmlfile or csv file, if not provide then default to localize the inputDir')          
+parser.add_argument('--saveVis', required= False,
+                    type = int,
+                    default = 1,
+                    help= 'save8bit image for display or not, defalut = 0')          
+parser.add_argument('--downscaleRate', required= False,
+                    type = int,
+                    default = 1,
+                    help= 'display_downscaleRate > 1 downscale, < 1 upscale, default = 1')  
+parser.add_argument('--seedSize', required= False,
+                    type = int,
+                    default = 1,
+                    help= 'size of seed to create bin mask')                                                                               
+parser.add_argument('--erosion_px', required= False,
+                    type = int,
+                    default = 0,
+                    help= 'integer of pixel to shink the bbox ')
+parser.add_argument('--wholeCellDir', required= False,
+                    metavar = "/path/to/maskfile/",
+                    default = '/data/xiaoyang/10_plex_stroke_rat/',
+                    help='Root directory of whole cell body segmentation')   
+parser.add_argument('--imadjust', required=False,
+                    default = "F",type = str, 
+                    help='whether to adjust the image, ')         
+
+args = parser.parse_args()
+
+
+def image_adjust( image):
+    if image.ndim ==3:
+        CHN_img_ls = []
+        for i in range(image.shape[2]):
+            CHN_img = image [:,:,i]
+            CHN_img_ls. append( exposure.equalize_adapthist(CHN_img) )           # Load over images
+        image = np.dstack (CHN_img_ls)
+    else:
+        image = exposure.equalize_adapthist(image)            # Load over images
+    image = skimage.img_as_ubyte(image)
+    return image.copy()
 
 def extractFileNamesforType(dir_loc, fileExt):   # dir , '.tif'
     readNames =    os.listdir (dir_loc)
@@ -119,17 +177,25 @@ def extractFileNamesforType(dir_loc, fileExt):   # dir , '.tif'
     ([fileNames.append(readNames[i]) for i in typesIDs])    
     return fileNames
 
-def save_mask2bin (maskBinName, label_img):
-    cv2.imwrite(maskBinName.split(".bin")[0] + ".tif", label_img )
+def save_mask2bin (maskBinName, label_img, transpose = True):
+    tiff.imsave(maskBinName.split(".bin")[0] + ".tif", label_img )
     label_img_vec = np.array(label_img, dtype = np.int32)
-    label_img_vec = np.reshape( label_img_vec.T ,label_img_vec.size)                       
+    if transpose:
+        label_img_vec = np.reshape( label_img_vec.T ,label_img_vec.size)               
+    else:
+        label_img_vec = np.reshape( label_img_vec ,label_img_vec.size)                  
+
     fout_mask = open(maskBinName,'wb')    
     label_img_vec.tofile(fout_mask)                       
     fout_mask.close()
 
+def str2bool(str_input):
+    bool_result = False if str_input.lower() in ["f",'false','0',"no",'n'] else True
+    return bool_result
+
 def Write_FeatureTable (Read_img_file_Loc, maskfileName, Write_img_file_Loc = None, MaskType = 'bbox' ,
                         display_downscaleRate = 1, seedSize = 1, saveVis = False, mirror_y = True,erosion_px=0,
-                        wholeCellDir = None, xmlDir = '' ):
+                        wholeCellDir = None, chnDef = '' ,imadjust = False):
     ''' 
     Function: Write_FeatureTable
     Input: 
@@ -169,15 +235,15 @@ def Write_FeatureTable (Read_img_file_Loc, maskfileName, Write_img_file_Loc = No
     print ("maskfileName = ",  maskfileName )
 
     print ("    ''' Load Dataset definition'''")
-    if ".xml" in xmlDir:
-        tree = ET.parse(xmlDir)
+    if ".xml" in chnDef:
+        tree = ET.parse(chnDef)
         root = tree.getroot()
         Images = root[0]        
         Image_temp = Images.findall('Image')[0]
         imreadName = Image_temp.find('FileName').text  # Read one image to extract the size of image
-    elif ".csv" in xmlDir:
+    elif ".csv" in chnDef:
         # Create xml structure from csv, for loading the channel definition later
-        DatesetDef_csv = pd.read_csv(xmlDir)
+        DatesetDef_csv = pd.read_csv(chnDef)
         imreadName = DatesetDef_csv["filename"][0]    # Read one image to extract the size of image
         Images = Element('Images')        
         for i in range(DatesetDef_csv.shape[0]):
@@ -187,11 +253,12 @@ def Write_FeatureTable (Read_img_file_Loc, maskfileName, Write_img_file_Loc = No
             FileName = SubElement(Image, 'FileName')
             FileName.set("CHNName", DatesetDef_csv["CHNName"][i])
             FileName.text = DatesetDef_csv["filename"][i]
-        # import pdb; pdb.set_trace()
+        # 
 
-    datasetName = os.path.basename(xmlDir).split('.')[0]  # storage the name to extract dataset name 
-    image_temp = tiff.imread( os.path.join( Read_img_file_Loc, imreadName) )                      # 16bit
-
+    datasetName = os.path.basename(chnDef).split('.')[0]  # storage the name to extract dataset name 
+    # image_temp = tiff.imread( os.path.join( Read_img_file_Loc, imreadName) )                      # 16bit
+    with tiff.TiffFile(os.path.join( Read_img_file_Loc, imreadName)) as tif:
+        image_temp = tif.asarray(memmap=True)
     print ("    ''' read xml done'''")
     print ("FileName= ",os.path.join( Read_img_file_Loc, imreadName))
     print ("    ''' read image_temp done'''")
@@ -208,20 +275,24 @@ def Write_FeatureTable (Read_img_file_Loc, maskfileName, Write_img_file_Loc = No
 
     '''Load bbox (.txt) or mask ('.out') to write centroids '''
 
-    if ('.txt' in maskfileName) and ('b' in MaskType):        # Use bbox as input
-        Bbox_headers = open(maskfileName).readline().split("\n")[0].split("\t")
-        Bbox_txt     = np.loadtxt(maskfileName, skiprows=1)
-        NumOfObj     = Bbox_txt.shape[0]
-        assert len(Bbox_headers)== Bbox_txt.shape[1]    
-        bbox_table      = {}
-        for i, Bbox_header in enumerate( Bbox_headers):                                              
-            # Storage ['ID', 'centroid_x', 'centroid_y' ,'xmin', 'ymin', 'xmax', 'ymax''] into bbox                                                                   
-            bbox_table[Bbox_header] = np.array(Bbox_txt[:,i],dtype= int)
+    if  ('b' in MaskType):        # Use bbox as input  contain ['ID', 'centroid_x', 'centroid_y' ,'xmin', 'ymin', 'xmax', 'ymax''] into bbox      
+        if ('.txt' in maskfileName):                            # txt file
+            Bbox_headers = open(maskfileName).readline().split("\n")[0].split("\t")
+            Bbox_txt     = np.loadtxt(maskfileName, skiprows=1)
+            NumOfObj     = Bbox_txt.shape[0]
+            assert len(Bbox_headers)== Bbox_txt.shape[1]    
+            bbox_table      = {}
+            for i, Bbox_header in enumerate( Bbox_headers):                                             
+                bbox_table[Bbox_header] = np.array(Bbox_txt[:,i],dtype= int)
+
+        elif ('.csv' in maskfileName):                          # csv file
+            bbox_table = pd.read_csv(maskfileName)            
+            NumOfObj     = bbox_table.shape[0]
 
         # Create feature table for ICE  (will have y mirror for visualization purpose)
         Featuretable = pd.DataFrame({ 'ID'        : bbox_table['ID'],
-                                      'centroid_x': bbox_table['centroid_x'],
-                                      'centroid_y': bbox_table['centroid_y'],
+                                    'centroid_x': bbox_table['centroid_x'],
+                                    'centroid_y': bbox_table['centroid_y'],
                                     })
         Featuretable = Featuretable.set_index('ID')
 
@@ -234,7 +305,7 @@ def Write_FeatureTable (Read_img_file_Loc, maskfileName, Write_img_file_Loc = No
                                             'xmax'      : bbox_table['xmax'],
                                             'ymax'      : bbox_table['ymax'],
                                     })
-        AssociativeFtable = AssociativeFtable.set_index('ID')        
+        AssociativeFtable = AssociativeFtable.set_index('ID')  
         Featuretable['centroid_y'] = Featuretable['centroid_y'] if mirror_y == False \
                                    else ( image_shape[0] - Featuretable['centroid_y'])                  # Might need to  flip over the crop 
         
@@ -267,17 +338,27 @@ def Write_FeatureTable (Read_img_file_Loc, maskfileName, Write_img_file_Loc = No
 
             ############ save the mask_bin_downscales ################
             label_image_downscaled = label_image_downscaled if mirror_y == False else np.flipud(label_image_downscaled)
+            # adjust 
+            # label_image_downscaled = np.transpose(label_image_downscaled)
 
             # maskBinName = os.path.join (Write_img_file_Loc , '[DAPI]nucleus_Mask_downscaled_' + str(display_downscaleRate) + '.bin' )
-            maskBinName = os.path.join (Write_img_file_Loc , '[DAPI]Seeds_Mask.bin' )            
-            cv2.imwrite(maskBinName.split(".bin")[0] + ".tif",label_image_downscaled )
+            maskBinName = os.path.join (Write_img_file_Loc , '[DAPI]Seeds_Mask.bin' )    
+            # import pdb; pdb.set_trace()
+            # tiff.imsave(maskBinName.split(".bin")[0] + ".tif",label_image_downscaled )
 
-            fout_mask = open(maskBinName,'wb')               
-            label_image_downscaled_vec = np.array(label_image_downscaled, dtype = np.int32)
+            hf = h5py.File(os.path.join(Write_img_file_Loc,"label_image_downscaled.h5"), 'w')
+            hf.create_dataset('seg_results', data=label_image_downscaled)
+            hf.close()
+
+            # fout_mask = open(maskBinName,'wb')               
+            # label_image_downscaled_vec = np.array(label_image_downscaled, dtype = np.int32)
             # label_image_downscaled_vec = np.reshape( label_image_downscaled_vec.T ,label_image_downscaled_vec.size)       
-            label_image_downscaled_vec = np.reshape( label_image_downscaled_vec ,label_image_downscaled_vec.size)                  
-            label_image_downscaled_vec.tofile(fout_mask)                       
-            fout_mask.close()
+            # # label_image_downscaled_vec = np.reshape( label_image_downscaled_vec ,label_image_downscaled_vec.size)                  
+            # label_image_downscaled_vec.tofile(fout_mask)                       
+            # fout_mask.close()
+
+            save_mask2bin (maskBinName , label_image_downscaled, transpose = False)   
+
             
     elif ('.out' in maskfileName) or ('.txt' in maskfileName)and ('m' in MaskType): # Use mask as input
         if display_downscaleRate == 1 :      
@@ -372,54 +453,60 @@ def Write_FeatureTable (Read_img_file_Loc, maskfileName, Write_img_file_Loc = No
             print ("Loading Channel : ", biomarker )            
             imreadName = Image.find('FileName').text
             print ("imreadName = ",os.path.join( Read_img_file_Loc, imreadName))
-            image = tiff.imread( os.path.join( Read_img_file_Loc, imreadName) )                       # 16bit
-            
+            # image = tiff.imread( os.path.join( Read_img_file_Loc, imreadName) )                       # 16bit
+            with tiff.TiffFile(os.path.join( Read_img_file_Loc, imreadName)) as tif:
+                image = tif.asarray(memmap=False)            
             # saveImageName = Image.get('Celltype') + "_" + 
             #                 Image.get('CellSegmentation') + "_" + 
             #                 Image.get('biomarker') +"_" 
             #                 + ".tif" 
             saveImageName = "[" + Image.get('biomarker')  + "].tif" 
             ''' Low quality Image for visualization  '''
-            if saveVis == True:                                                                     # save 8 bits image for display
+            if saveVis == True:     
+                if imadjust:                
+                    image_save =  image_adjust(image)          # Load over images
+                                                                                # save 8 bits image for display
                 if display_downscaleRate == 1 : 
                     image_save  = skimage.img_as_ubyte(image)
                     tiff.imsave (os.path.join( Write_img_file_Loc , saveImageName),
-                                    image_save , bigtiff=True)               
+                                    image_save )               
                 else:
                     image_downscaled = transform.pyramid_reduce(image, downscale=display_downscaleRate)
                     # print ("image_downscaled.shape =",image_downscaled.shape )         
                     image_save  = skimage.img_as_ubyte(image_downscaled)
                     tiff.imsave (os.path.join( Write_img_file_Loc , saveImageName),
-                                    image_save, bigtiff=True)    
+                                    image_save)    
                     print (" Save downscaled Images! " )
 
             ''' Storage Intrinsic features '''
-            Avg_intensity_ls = np.zeros(NumOfObj )
+            # Avg_intensity_ls = np.zeros(NumOfObj )
             # Tol_intensity_ls = np.zeros(NumOfObj )
             # print ("Intensity Image shape = ", image.shape)
+            Avg_intensity_ls = []
             if MaskType == 'bbox':
                 print ("Computing biomarker Avg and Sum")
-                for i in range(0,NumOfObj):
+                
+                obj_i_ls = [ i for i in range(0,NumOfObj) ]
+                def cal_avg_intensity(i):
                     # print (bbox_table["xmin"][i],bbox_table["xmax"][i],bbox_table["ymin"][i],bbox_table["ymax"][i] )
-                    
+
                     y_min = int( np.array( [bbox_table["ymin"][i] + erosion_px,bbox_table["ymax"][i]- erosion_px]). min() )
                     y_max = int( np.array( [bbox_table["ymin"][i] + erosion_px,bbox_table["ymax"][i]- erosion_px]). max() )
-
                     x_min = int( np.array( [bbox_table["xmin"][i] + erosion_px,bbox_table["xmax"][i]- erosion_px]). min() )
                     x_max = int( np.array( [bbox_table["xmin"][i] + erosion_px,bbox_table["xmax"][i]- erosion_px]). max() )
-
                     intensity_image_cropped  = image[ y_min : y_max  ,
                                                       x_min: x_max  ] 
-                    # print ("intensity_image_cropped shape = ",intensity_image_cropped.shape)
-                    Avg_intensity_ls[i] = np.mean (intensity_image_cropped)
                     # Tol_intensity_ls[i] = intensity_image_cropped.sum()
+                    return np.mean (intensity_image_cropped)
+                Avg_intensity_ls = [cal_avg_intensity(i) for i in obj_i_ls]
+                Avg_intensity_ls = np.array(Avg_intensity_ls)
+
             elif MaskType == 'mask':
                 print ("Computing biomarker Avg and Sum")
-                for i, obj in enumerate( skimage.measure.regionprops (label_image, intensity_image = image ) ):
-                    intensity_image_cropped = obj.intensity_image 
-                    # print ( "For obj " , i, " label = ", obj.label, "obj.intensity_image.sum =  ", obj.intensity_image.sum() )
-                    Avg_intensity_ls[i] = np.mean (intensity_image_cropped)
-                    # Tol_intensity_ls[i] = intensity_image_cropped.sum()              
+                intensity_image_ls = skimage.measure.regionprops_table (label_image,intensity_image = image,
+                                    properties=["intensity_image"] )["intensity_image"]
+                Avg_intensity_ls = [np.mean(i) for i in intensity_image_ls]
+                Avg_intensity_ls = np.array(Avg_intensity_ls)        
 
             Featuretable[(biomarker) ] = Avg_intensity_ls
             AssociativeFtable[(biomarker) ] = Avg_intensity_ls
@@ -466,6 +553,7 @@ def GenerateICE(datasetName, output_folder, featureTable_FName = None,FeatureTab
         % [**_featuretable.csv] Feature table from NucleusEditor 
         % [**_featuretable.bin] Feature table from NucleusEditor 
         % [original image]  illuminaionCorrectedImage (temp  % use'4110_C1_IlluminationCorrected_stitched.tif'   )
+        % [Seeds_Mask.bin]
     Output:
         % [.ice] XMLfile
     '''        
@@ -487,11 +575,12 @@ def GenerateICE(datasetName, output_folder, featureTable_FName = None,FeatureTab
     maskImageNames = []
 
     for fileName in sorted( os.listdir(output_folder) ):
-        if len(fileName.split('.')) >1 :                                                        # not folder
+        if os.path.isfile(os.path.join(output_folder,fileName)) :                                                        # not folder
             if ('[' in fileName) and ('.tif'in fileName)  :
                 actualImageNames.append(fileName)
-            elif ('Mask' in fileName) and ('.bin'in fileName)  : #mask_....bin
+            if ('Mask' in fileName) and ('.bin'in fileName)  : #mask_....bin
                 maskImageNames.append(fileName)
+    print("\nmaskImageNames=",maskImageNames)
 
     # read feture table
     # Read the external feature table.txt
@@ -512,7 +601,7 @@ def GenerateICE(datasetName, output_folder, featureTable_FName = None,FeatureTab
         featureNameLs.remove('\n')  
         ([x.remove('\n')    for  x  in featureVariableMat])        
     
-    #for defXMLName in defXMLNames :                                                  
+    #for defXMLName in defXMLNames :                                      FN            
                 
     #####################################  Generateing ICE  ##########################
     rootET = Element('ICEFormat')
@@ -575,19 +664,29 @@ def GenerateICE(datasetName, output_folder, featureTable_FName = None,FeatureTab
         
         ImageIDs_others = []
         Biomakers_others = []
-        actualImg = tiff.imread( os.path.join( output_folder , actualImageNames[0]))    
 
+        # only read the size once , because all channels have same sized
+        with tiff.TiffFile(os.path.join( output_folder , actualImageNames[0])) as tif:
+            actualImg = tif.asarray(memmap=True)
+        # actualImg = tiff.imread( os.path.join( output_folder , actualImageNames[0]))            # pic one for extracting the meta
+        actualImg_shape = [actualImg.shape[1],actualImg.shape[0]]
+
+        
         for ImgID , actualImageName in enumerate(actualImageNames):
             Image = SubElement(CompositeImages,'Image')
             ID = SubElement(Image,'ID')
             ID.text = 'Img_00' + str(ImgID)                                                     # only keep the name part before extention as the ID 
-            actualImg = tiff.imread(os.path.join( output_folder , actualImageName)  )                               # Read Image
+            # with tiff.TiffFile(os.path.join( output_folder , actualImageName)) as tif:
+            #     actualImg = tif.asarray(memmap=True)      
+            # # import pdb; pdb.set_trace()
+            # actualImg_shape = [actualImg.shape[1],actualImg.shape[0]]
+            # actualImg = tiff.imread(os.path.join( output_folder , actualImageName)  )                               # Read Image
             URL = SubElement(Image,'URL')
             URL.set('url','file://'+ actualImageName)                                           # get the file Name of Image    
             Width = SubElement(Image,'Width')
-            Width.text = str( actualImg.shape[0])
+            Width.text = str( actualImg_shape[0])                                              
             Height = SubElement(Image,'Height')
-            Height.text = str(actualImg.shape[1])
+            Height.text = str(actualImg_shape[1])                                                   
             
             biomarkerName = actualImageName.split('_')[0]                                       # prepare for InfoCompositeImage
             Image.set('biomarker',biomarkerName) 
@@ -612,20 +711,20 @@ def GenerateICE(datasetName, output_folder, featureTable_FName = None,FeatureTab
             URL.text = ('file://'+  maskImgName)                                                # get the file Name of MaskImage (Should be .bin file)
               # Read Image size
             Width = SubElement(Mask,'Width')
-            Width.text = str( actualImg.shape[0])
+            Width.text = str( actualImg_shape[0])
             Height = SubElement(Mask,'Height')
-            Height.text = str(actualImg.shape[1])
+            Height.text = str(actualImg_shape[1])
             BitDepth = SubElement(Mask, 'BitDepth')
             BitDepth.text = str(32)                                                             # unsigned integer 32 bit
             
             # biomarkerName = maskImgName.split(']')[0] +']'                                    # prepare for InfoCompositeImage
         #    Mask.set('biomarker',actualImageName.split('_')[0]) 
-            if "Nucleus" in maskImgName :                                                       # nuclues Mask, generate for all channels
+            if "Seeds" in maskImgName :                                                         # nuclues Mask, generate for all channels
                 MaskIDs_Nucleus.append(ID.text)
-                print ("MaskIDs_Nucleus:", MaskIDs_Nucleus)
+                # print ("MaskIDs_Nucleus:", MaskIDs_Nucleus)
             else:                                                                               # morphological Mask  # might us in the future        generate for all other channels
                 MaskIDs_others.append(ID.text)
-                print ("MaskIDs_others:", MaskIDs_others)
+                # print ("MaskIDs_others:", MaskIDs_others)
                              
         # exit dataset-----------------------------
   
@@ -727,62 +826,16 @@ def GenerateFCS(csv_filename, fcs_filename = None):
 
 
 if __name__== "__main__":
-    import argparse,time
-    # Parse command line arguments
-    parser = argparse.ArgumentParser(
-        description='****  Whole brain segentation pipeline: FCS / ICE file generator ******' +
-        '\ne.g\n' ,
-        formatter_class=argparse.RawTextHelpFormatter)
-        
-    parser.add_argument('--inputDir', required=False,
-                        metavar = "/path/to/dataset/",
-                        default = "/data/xiaoyang/10_plex_stroke_rat/",
-                        help='Directory of inputs, default = "/data/xiaoyang/10_plex_stroke_rat/"')                
-    parser.add_argument('--maskType', required= False,                        
-                        default = "b",
-                        help='Mask type: "b"/"bbox","m"/"mask", default = "bbox" ')                
-    parser.add_argument('--maskDir', required= False,
-                        default = '/data/xiaoyang/10_plex_stroke_rat/detection_results/bbxs_detection.txt',
-                        help='Full Path name of mask.out/bbox.txt, default = "/data/xiaoyang/10_plex_stroke_rat/detection_results/bbxs_detection.txt" ')
-    parser.add_argument('--outputDir', required= False,
-                        metavar = "/path/to/maskfile/",
-                        default = '/data/xiaoyang/10_plex_stroke_rat/',
-                        help='Root directory for the results, default = "/data/xiaoyang/10_plex_stroke_rat/" ')                        
-    parser.add_argument('--xmlDir', required= False,
-                        metavar = "/path/to/xmlFeatureFile/",
-                        default = None,
-                        help='localtion for xmlfile or csv file, if not provide then default to localize the inputDir')          
-    parser.add_argument('--saveVis', required= False,
-                        type = int,
-                        default = 1,
-                        help= 'save8bit image for display or not, defalut = 0')          
-    parser.add_argument('--downscaleRate', required= False,
-                        type = int,
-                        default = 1,
-                        help= 'display_downscaleRate > 1 downscale, < 1 upscale, default = 1')  
-    parser.add_argument('--seedSize', required= False,
-                        type = int,
-                        default = 1,
-                        help= 'size of seed to create bin mask')                                                                               
-    parser.add_argument('--erosion_px', required= False,
-                        type = int,
-                        default = 0,
-                        help= 'integer of pixel to shink the bbox ')
-    parser.add_argument('--wholeCellDir', required= False,
-                        metavar = "/path/to/maskfile/",
-                        default = '/data/xiaoyang/10_plex_stroke_rat/',
-                        help='Root directory of whole cell body segmentation')   
-    args = parser.parse_args()
-
+ 
     tic = time.time ()
     assert args.maskType in ["b", "bbox", "m", "mask"]
     mask_type = 'bbox' if  args.maskType in ["b", "bbox"] else 'mask'
     print ("** mask_type = ", mask_type)
 
-    if args.xmlDir is None:
+    if args.chnDef is None:
         DatesetDef_path = extractFileNamesforType(args.inputDir, 'XLSX.xml')[0]
     else:
-        DatesetDef_path =  args.xmlDir
+        DatesetDef_path =  args.chnDef
 
     print ("** args.maskDir = ", args.maskDir)
     featureTable_FName, AssociativeFtable_FName = Write_FeatureTable ( Read_img_file_Loc       = args.inputDir , 
@@ -794,18 +847,20 @@ if __name__== "__main__":
                                                     saveVis                 = bool(args.saveVis),                                                     
                                                     mirror_y                = True,
                                                     wholeCellDir            = args.wholeCellDir,
-                                                    xmlDir                  = DatesetDef_path
+                                                    chnDef                  = DatesetDef_path,
+                                                    imadjust                = str2bool(args.imadjust)
                                                    )
     print ("Finish creating featureTable_FName = ", featureTable_FName,
                     "\t AssociativeFtable_FName= ", AssociativeFtable_FName)
 
     Write_FeatureTable2bin(featureTable_FName)
     
+    # only featuretable, no superimpose
     # ice_filename1 = GenerateICE(input_folder = args.inputDir, output_folder = args.outputDir,  
     #                             featureTable_FName = featureTable_FName ,  FeatureTableOnly = True)
-
+    
     datasetName = os.path.basename(DatesetDef_path).split('.')[0]
-    ice_filename2 = GenerateICE(datasetName = args.xmlDir, output_folder = args.outputDir,  
+    ice_filename2 = GenerateICE(datasetName = datasetName, output_folder = args.outputDir,  
                                 featureTable_FName = featureTable_FName ,  FeatureTableOnly = False)   
     print ("ICE has written in ", ice_filename2)
 
