@@ -148,11 +148,11 @@ Parse the arguments to  `GenerateICE_FCS_script.py`:
   - From bbox
     ```bash
     python PHENOTYPING/GenerateICE_FCS_script.py \
-    --INPUT_DIR="/project/roysam/datasets/TBI/G2_Sham_Trained/G2_BR#22_HC_13L/final" \
+    --INPUT_DIR=/project/roysam/datasets/TBI/G2_Sham_Trained/G2_BR#22_HC_13L/final \
     --OUTPUT_DIR=/project/roysam/datasets/TBI/G2_Sham_Trained/G2_BR#22_HC_13L/ICE \
-    --maskType="b" \
+    --maskType=b \
     --maskDir=/project/roysam/datasets/TBI/G2_Sham_Trained/G2_BR#22_HC_13L/detection_results/bbxs_detection.txt \
-    --CHNDEF="/project/roysam/datasets/TBI/20_plex.csv" \
+    --CHNDEF=/project/roysam/datasets/TBI/20_plex.csv \
     --downscaleRate=4 \  
     --seedSize=2 \
     --erosion_px=5 \
