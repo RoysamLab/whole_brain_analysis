@@ -2,7 +2,7 @@
 """
 Input: 
 
-    [inputDir]  : Input Images directory
+    [INPUT_DIR]  : Input Images directory
     [maskType] :  input mask type options   
             Opt1 detection bouding box:  "b"/"bbox"
             Opt2 segmentation mask: "m"/"mask"
@@ -11,11 +11,11 @@ Input:
                 header contains: ['ID', 'centroid_x', 'centroid_y', 'xmin', 'ymin', 'xmax', 'ymax']
             Opt2 mask: .out /.txt
                 segmentation lable mask array:  same size with image, delimited=','  
-    [chnDef]: dataset definition file, contain dataset definition, channel definition and intensity image path ralative to input_dir  
+    [CHNDEF]: dataset definition file, contain dataset definition, channel definition and intensity image path ralative to input_dir  
             (Notice! All intensity images must be shown as the XML defined)             
 
             Opt1: None
-                Look for  *datasetName*_Dataset_fromXLSX.xml  in the folder of inputDir
+                Look for  *datasetName*_Dataset_fromXLSX.xml  in the folder of INPUT_DIR
             Opt2:  *datasetName*.xml
                 the full path of user defined dataset definition file
             Opt3: *datasetName*.csv
@@ -51,10 +51,10 @@ e.g.
     mkdir "$output_dir"
 
     python GenerateICE_FCS_script.py \
-        --inputDir="$data_dir"/cell_type_images \
+        --INPUT_DIR="$data_dir"/cell_type_images \
+        --OUTPUT_DIR="$output_dir" \
         --maskType=b \
         --maskDir="$data_dir"/detection_results/bbxs_detection.txt \
-        --outputDir="$output_dir" \
         --downscaleRate=4 \
         --seedSize=2 \
         --erosion_px=5 \
@@ -62,26 +62,24 @@ e.g.
 
 
     python GenerateICE_FCS_script.py \
-        --inputDir="/project/roysam/datasets/TBI/G2_Sham_Trained/G2_BR#22_HC_13L/final" \
-        --maskType=b \
+        --INPUT_DIR="/project/roysam/datasets/TBI/G2_Sham_Trained/G2_BR#22_HC_13L/final" \
+        --OUTPUT_DIR=/project/roysam/datasets/TBI/G2_Sham_Trained/G2_BR#22_HC_13L/ICE \
+        --maskType="b" \
         --maskDir=/project/roysam/datasets/TBI/G2_Sham_Trained/G2_BR#22_HC_13L/detection_results/bbxs_detection.txt \
-        --outputDir=/project/roysam/datasets/TBI/G2_Sham_Trained/G2_BR#22_HC_13L/ICE \
-        --chnDef="/project/roysam/datasets/TBI/20_plex.csv" \
+        --CHNDEF="/project/roysam/datasets/TBI/20_plex.csv" \
         --downscaleRate=4 \
         --seedSize=2 \
         --erosion_px=5 \
 
-
     [From mask]  
     python GenerateICE_FCS_script.py \
-            --inputDir=/data/xiaoyang/CHN50 \
-            --maskType=mask \
-            --maskDir=data_dir \
-            --outputDir=/data/xiaoyang/CHN50/mrcnn_seg_data/ICE_FCS_files \
-            --saveVis=1 \
-            --downscaleRate=4 \
-            --seedSize=3\
-            2>&1 | tee /data/xiaoyang/CHN50/mrcnn_seg_data/log_GenerateICE_FCS_script.txt       
+        --INPUT_DIR=/data/xiaoyang/CHN50 \
+        --maskType=mask \
+        --maskDir=$data_dir \
+        --OUTPUT_DIR=/data/xiaoyang/CHN50/mrcnn_seg_data/ICE_FCS_files \
+        --downscaleRate=4 \
+        --seedSize=3\
+        2>&1 | tee /data/xiaoyang/CHN50/mrcnn_seg_data/log_GenerateICE_FCS_script.txt       
         
 @author: Rebecca ( xiaoyang.rebecca.li@gmail.com ) University of Houston, 2018
 """
@@ -112,7 +110,7 @@ parser = argparse.ArgumentParser(
     '\ne.g\n' ,
     formatter_class=argparse.RawTextHelpFormatter)
     
-parser.add_argument('--inputDir', required=False,
+parser.add_argument('--INPUT_DIR', required=False,
                     metavar = "/path/to/dataset/",
                     default = "/data/xiaoyang/10_plex_stroke_rat/",
                     help='Directory of inputs, default = "/data/xiaoyang/10_plex_stroke_rat/"')                
@@ -122,14 +120,14 @@ parser.add_argument('--maskType', required= False,
 parser.add_argument('--maskDir', required= False,
                     default = '/data/xiaoyang/10_plex_stroke_rat/detection_results/bbxs_detection.txt',
                     help='Full Path name of mask.out/bbox.txt, default = "/data/xiaoyang/10_plex_stroke_rat/detection_results/bbxs_detection.txt" ')
-parser.add_argument('--outputDir', required= False,
+parser.add_argument('--OUTPUT_DIR', required= False,
                     metavar = "/path/to/maskfile/",
                     default = '/data/xiaoyang/10_plex_stroke_rat/',
                     help='Root directory for the results, default = "/data/xiaoyang/10_plex_stroke_rat/" ')                        
-parser.add_argument('--chnDef', required= False,
-                    metavar = "/path/to/xmlFeatureFile/",
+parser.add_argument('--CHNDEF', required= False,
+                    metavar = "/path/to/csvFeatureFile/",
                     default = None,
-                    help='localtion for xmlfile or csv file, if not provide then default to localize the inputDir')          
+                    help='localtion for xmlfile or csv file, if not provide then default to localize the INPUT_DIR')          
 parser.add_argument('--saveVis', required= False,
                     type = int,
                     default = 1,
@@ -151,7 +149,7 @@ parser.add_argument('--wholeCellDir', required= False,
                     default = '/data/xiaoyang/10_plex_stroke_rat/',
                     help='Root directory of whole cell body segmentation')   
 parser.add_argument('--imadjust', required=False,
-                    default = "F",type = str, 
+                    default = "T",type = str, 
                     help='whether to adjust the image, ')         
 
 args = parser.parse_args()
@@ -195,7 +193,7 @@ def str2bool(str_input):
 
 def Write_FeatureTable (Read_img_file_Loc, maskfileName, Write_img_file_Loc = None, MaskType = 'bbox' ,
                         display_downscaleRate = 1, seedSize = 1, saveVis = False, mirror_y = True,erosion_px=0,
-                        wholeCellDir = None, chnDef = '' ,imadjust = False):
+                        wholeCellDir = None, CHNDEF = '' ,imadjust = False):
     ''' 
     Function: Write_FeatureTable
     Input: 
@@ -235,15 +233,15 @@ def Write_FeatureTable (Read_img_file_Loc, maskfileName, Write_img_file_Loc = No
     print ("maskfileName = ",  maskfileName )
 
     print ("    ''' Load Dataset definition'''")
-    if ".xml" in chnDef:
-        tree = ET.parse(chnDef)
+    if ".xml" in CHNDEF:
+        tree = ET.parse(CHNDEF)
         root = tree.getroot()
         Images = root[0]        
         Image_temp = Images.findall('Image')[0]
         imreadName = Image_temp.find('FileName').text  # Read one image to extract the size of image
-    elif ".csv" in chnDef:
+    elif ".csv" in CHNDEF:
         # Create xml structure from csv, for loading the channel definition later
-        DatesetDef_csv = pd.read_csv(chnDef)
+        DatesetDef_csv = pd.read_csv(CHNDEF)
         imreadName = DatesetDef_csv["filename"][0]    # Read one image to extract the size of image
         Images = Element('Images')        
         for i in range(DatesetDef_csv.shape[0]):
@@ -255,7 +253,7 @@ def Write_FeatureTable (Read_img_file_Loc, maskfileName, Write_img_file_Loc = No
             FileName.text = DatesetDef_csv["filename"][i]
         # 
 
-    datasetName = os.path.basename(chnDef).split('.')[0]  # storage the name to extract dataset name 
+    datasetName = os.path.basename(CHNDEF).split('.')[0]  # storage the name to extract dataset name 
     # image_temp = tiff.imread( os.path.join( Read_img_file_Loc, imreadName) )                      # 16bit
     with tiff.TiffFile(os.path.join( Read_img_file_Loc, imreadName)) as tif:
         image_temp = tif.asarray(memmap=True)
@@ -832,22 +830,22 @@ if __name__== "__main__":
     mask_type = 'bbox' if  args.maskType in ["b", "bbox"] else 'mask'
     print ("** mask_type = ", mask_type)
 
-    if args.chnDef is None:
-        DatesetDef_path = extractFileNamesforType(args.inputDir, 'XLSX.xml')[0]
+    if args.CHNDEF is None:
+        DatesetDef_path = extractFileNamesforType(args.INPUT_DIR, 'XLSX.xml')[0]
     else:
-        DatesetDef_path =  args.chnDef
+        DatesetDef_path =  args.CHNDEF
 
     print ("** args.maskDir = ", args.maskDir)
-    featureTable_FName, AssociativeFtable_FName = Write_FeatureTable ( Read_img_file_Loc       = args.inputDir , 
+    featureTable_FName, AssociativeFtable_FName = Write_FeatureTable ( Read_img_file_Loc       = args.INPUT_DIR , 
                                                     maskfileName            = args.maskDir  ,
-                                                    Write_img_file_Loc      = args.outputDir,
+                                                    Write_img_file_Loc      = args.OUTPUT_DIR,
                                                     MaskType                = mask_type,
                                                     display_downscaleRate   = args.downscaleRate,
                                                     seedSize                = args.seedSize,
                                                     saveVis                 = bool(args.saveVis),                                                     
                                                     mirror_y                = True,
                                                     wholeCellDir            = args.wholeCellDir,
-                                                    chnDef                  = DatesetDef_path,
+                                                    CHNDEF                  = DatesetDef_path,
                                                     imadjust                = str2bool(args.imadjust)
                                                    )
     print ("Finish creating featureTable_FName = ", featureTable_FName,
@@ -856,11 +854,11 @@ if __name__== "__main__":
     Write_FeatureTable2bin(featureTable_FName)
     
     # only featuretable, no superimpose
-    # ice_filename1 = GenerateICE(input_folder = args.inputDir, output_folder = args.outputDir,  
+    # ice_filename1 = GenerateICE(input_folder = args.INPUT_DIR, output_folder = args.OUTPUT_DIR,  
     #                             featureTable_FName = featureTable_FName ,  FeatureTableOnly = True)
-    
+
     datasetName = os.path.basename(DatesetDef_path).split('.')[0]
-    ice_filename2 = GenerateICE(datasetName = datasetName, output_folder = args.outputDir,  
+    ice_filename2 = GenerateICE(datasetName = datasetName, output_folder = args.OUTPUT_DIR,  
                                 featureTable_FName = featureTable_FName ,  FeatureTableOnly = False)   
     print ("ICE has written in ", ice_filename2)
 
