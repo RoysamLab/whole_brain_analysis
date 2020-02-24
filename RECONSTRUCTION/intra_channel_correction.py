@@ -68,7 +68,7 @@ def intra_channel_correct(input_dir, output_dir, disk_size, script_file=None, br
         im_normalized = rescale_histogram(im)
 
         # save processed image to the disk
-        imsave(os.path.join(output_dir, file), im_normalized, plugin='tifffile', bigtiff=True)
+        imsave(os.path.join(output_dir, file), im_normalized, check_contrast=False, plugin='tifffile', bigtiff=True)
         bar.update(idx)
 
 
