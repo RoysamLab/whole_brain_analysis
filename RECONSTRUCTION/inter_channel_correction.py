@@ -1,5 +1,6 @@
 import os
 import re
+import sys
 import time
 import argparse
 import warnings
@@ -12,7 +13,7 @@ from shutil import copyfile
 from skimage import exposure
 from scipy import linalg as LA
 from sklearn import linear_model
-from skimage import img_as_float, img_as_uint
+from skimage import img_as_float, img_as_uint, img_as_ubyte
 
 
 def rescale_histogram(image):
@@ -141,6 +142,7 @@ def inter_channel_correct_supervised(input_dir, output_dir, script_file):
 
         # read source image and remove artifacts by zeroing pixels brighter than the brightest pixel in ROI
         source = tifffile.imread(os.path.join(input_dir, src_name))
+        img_type = source.dtype
 
         # clean artifacts in source image
         source[source > np.max(src_roi)] = 0
@@ -156,7 +158,12 @@ def inter_channel_correct_supervised(input_dir, output_dir, script_file):
         source[source < 0] = 0
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            source = img_as_uint(source)
+            if img_type == 'uint8':
+                source = img_as_ubyte(source)
+            elif img_type == 'uint16':
+                source = img_as_uint(source)
+            else:
+                sys.exit('image type not uint8 or uint16')
 
         # rescale histogram of image
         source = rescale_histogram(source)
@@ -219,6 +226,7 @@ def inter_channel_correct_unsupervised(input_dir, output_dir, script_file):
 
             # read source image
             source = tifffile.imread(os.path.join(input_dir, filename))
+            img_type = source.dtype
             source = img_as_float(source)  # convert to float for subtraction
 
             for i in range(len(values)):
@@ -230,7 +238,13 @@ def inter_channel_correct_unsupervised(input_dir, output_dir, script_file):
             source[source < 0] = 0
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
-                source = img_as_uint(source)
+                if img_type == 'uint8':
+                    source = img_as_ubyte(source)
+                elif img_type == 'uint16':
+                    source = img_as_uint(source)
+                else:
+                    sys.exit('image type not uint8 or uint16')
+
 
             # rescale histogram of image
             source = rescale_histogram(source)
