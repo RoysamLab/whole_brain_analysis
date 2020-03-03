@@ -64,11 +64,7 @@ parser.add_argument('-i', '--input_dir',
 parser.add_argument('-o', '--output_dir',
                     default=r"D:\research in lab\dataset\50CHN\registration_demo\after",
                     help='Path to the directory to save output images')
-parser.add_argument('-ot', '--outputType', required=False, default="16bit", type=str,
-                    help='Save tif image type: "8bit" or "16bit"')
-parser.add_argument('-it', '--inputType', required=False, default="16bit", type=str,
-                    help='Save tif image type: "8bit" or "16bit"')
-parser.add_argument('-nk', '--nKeypoint', required=False, default=200000, type=int,
+parser.add_argument('-nk', '--nKeypoint', required=False, default=300000, type=int,
                     help=" nKeypoint ")
 parser.add_argument('-kp_path', '--keypoint_dir', 
                     default= None,
@@ -238,7 +234,7 @@ def select_keypointsInMask(kp, binmask):
     return selected_kp
 
 
-def registrationORB_tiled(targets, sources, paras, output_dir, output_type="16bit", input_type="16bit",
+def registrationORB_tiled(targets, sources, paras, output_dir, 
                           save_target=True, 
                           keypoints1=None, descriptors1=None, imadjust = False, verbose =0):
     #%%
@@ -258,6 +254,7 @@ def registrationORB_tiled(targets, sources, paras, output_dir, output_type="16bi
         # if "C0" in t_key:
         if key_id == 0:
             target0 = tiff.imread(targets[t_key])
+            input_type = target0.dtype
             target0 = rgb2gray(target0) if target0.ndim == 3 else target0
             print("Process ", t_key, " as target0", "target0.shape = ", target0.shape)
             target0_key = t_key
@@ -273,8 +270,9 @@ def registrationORB_tiled(targets, sources, paras, output_dir, output_type="16bi
         print("!! target or source not found error:", sys.exc_info()[0])
 
     '''1. Feature detection and matching'''
-    target0 = img_as_ubyte(target0) if input_type is "8bit" else target0
-    source0 = img_as_ubyte(source0) if input_type is "8bit" else source0
+    # convert to 8 bit for detection in loweer quality 
+    target0 = img_as_ubyte(target0) # if input_type is "8bit" else target0
+    source0 = img_as_ubyte(source0) # if input_type is "8bit" else source0
 
     target0 = visfcts.adjust_image (target0) if imadjust is True  else target0
     source0 = visfcts.adjust_image (source0) if imadjust is True else source0
@@ -487,17 +485,23 @@ def registrationORB_tiled(targets, sources, paras, output_dir, output_type="16bi
                                    ck_tileRange[1]:ck_tileRange[3]] += source_warped_tile*fill_mask_tile
             
         print ( "source_warped.type= ", source_warped.dtype)
-        source_warped = img_as_uint(source_warped).astype( target0.dtype)                  
+        # source_warped = img_as_uint(source_warped).astype( target0.dtype)                  
         t_ransac = time.time()
 
         ### save source
-        if output_type is "8bit":
+        if paras.demo :
             tiff.imsave(os.path.join(output_dir, source_key),
-                        img_as_ubyte(source_warped), bigtiff= (paras.demo == False))  
-        else:  # output_type is "16bit":
-            print("\tsaving image as 16bit")
-            tiff.imsave(os.path.join(output_dir, source_key),
-                         img_as_uint(source_warped), bigtiff= (paras.demo == False))  
+                        img_as_ubyte(source_warped), bigtiff= False)  
+        else:
+            # output_type = input_type
+            if input_type == np.uint8:
+                print("\tsaving image as 8 bit")
+                tiff.imsave(os.path.join(output_dir, source_key),
+                            img_as_ubyte(source_warped).astype( input_type), bigtiff= True)  
+            else:  # output_type is "16bit":
+                print("\tsaving image as 16bit")
+                tiff.imsave(os.path.join(output_dir, source_key),
+                            img_as_uint(source_warped).astype( input_type), bigtiff= True)  
                  
         if s_i == 0 and save_vis == True:            
             t_warp0 = time.time()
@@ -565,7 +569,8 @@ def main():
     if os.path.exists(output_dir) is False:
         os.mkdir(output_dir)        
 
-    assert args.outputType in ["16bit", "8bit"]
+    
+    # assert args.outputType in ["16bit", "8bit"]
 
 #    Set_name = os.listdir(args.input_dir)[1].split("_")[0] + "_"
     input_dir_image = [f for f in os.listdir(args.input_dir) if f.endswith('.tif')]
@@ -642,16 +647,16 @@ def main():
         if sr_i == 0:  # only need keypoint extraction for target for once
             keypoints1, descriptors1 = registrationORB_tiled(targets, sources, paras,                                                             
                                                             output_dir=output_dir,
-                                                            output_type=args.outputType,
-                                                            input_type=args.inputType,
+                                                            # output_type=args.outputType,
+                                                            # input_type=args.inputType,
                                                             save_target=save_target,
                                                             imadjust= str2bool(args.imadjust) 
                                                             )            
         else:
             _, _ = registrationORB_tiled(targets, sources, paras,
                                         output_dir=output_dir,
-                                        output_type=args.outputType,
-                                        input_type=args.inputType,
+                                        # output_type=args.outputType,
+                                        # input_type=args.inputType,
                                         save_target=save_target,
                                         imadjust=str2bool(args.imadjust),
                                         keypoints1=keypoints1,
