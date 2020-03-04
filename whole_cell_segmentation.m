@@ -1,8 +1,14 @@
 clc;
 clear all;
+addpath('MORPHOLOGICAL_MASKING');
 %This code uses only X's results
 %With correct phenotype information
-dirpath='E:\50-plex\final\';
+%J's boxes
+dirpath=input('Enter path to the image files','s');
+if isempty(dirpath)
+    dirpath='E:\50-plex\final\';
+end
+
 im_dapi=imread(strcat(dirpath,'S1_R1C1.tif'));
 im_histone=imread(strcat(dirpath,'S1_R2C2.tif'));
 

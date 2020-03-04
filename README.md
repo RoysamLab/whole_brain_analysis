@@ -212,4 +212,4 @@ __Arguments:__
 ```bash
     matlab whole_cell_segmentation.m
     ```
-    The classification table and segmentation masked need to be entered interactively.
+    The path to images, classification table and segmentation masked need to be entered interactively.
