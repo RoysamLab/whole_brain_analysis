@@ -207,3 +207,9 @@ __Arguments:__
 - `downscaleRate`: for FCSexpress like visulization software,downscale the image to avoid crashing
 - `seedSize`: size of nuclear seed objects
 - `erosion_px`: pixel to shrink the bbox to focus on nuclear
+
+## 5. Morphological Masking:
+```bash
+    matlab whole_cell_segmentation.m
+    ```
+    The classification table and segmentation masked need to be entered interactively.
