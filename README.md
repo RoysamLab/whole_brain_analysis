@@ -209,7 +209,5 @@ __Arguments:__
 - `erosion_px`: pixel to shrink the bbox to focus on nuclear
 
 ## 5. Morphological Masking:
-```bash
-    matlab whole_cell_segmentation.m
-    ```
+```matlab whole_cell_segmentation.m```
     The path to images, classification table and segmentation masked need to be entered interactively.
