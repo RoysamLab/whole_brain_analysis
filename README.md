@@ -210,4 +210,5 @@ __Arguments:__
 
 ## 5. Morphological Masking:
 ```matlab whole_cell_segmentation.m```
+
     The path to images, classification table and segmentation masked need to be entered interactively.
