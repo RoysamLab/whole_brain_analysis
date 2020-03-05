@@ -211,7 +211,8 @@ __Arguments:__
 ## 5. Morphological Masking
 
 - Astrocyte Mask Generation:
-To get soma, processes and whole cell masks for astrocytes using S100 and GFAP biomarkers run the following:\
+To get soma, processes and whole cell masks for astrocytes using S100 and GFAP biomarkers run the following:
+
 ```matlab -nodesktop -nosplash  -r 'astrocytes_whole_brain_segmentation('DAPI_PATH',\
 'E:\50-plex\final\S1_R1C1.tif','HISTONE_PATH','E:\50-plex\final\S1_R2C2.tif','S100_PATH',\
 'E:\50-plex\final\S1_R3C5.tif','GFAP_PATH','E:\50-plex\final\S1_R3C3.tif',\
