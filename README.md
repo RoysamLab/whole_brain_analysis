@@ -209,6 +209,6 @@ __Arguments:__
 - `erosion_px`: pixel to shrink the bbox to focus on nuclear
 
 ## 5. Morphological Masking:
-```matlab whole_cell_segmentation.m```
+```matlab -nodesktop -nosplash  -r 'endothelial_whole_brain_segmentation('DAPI_PATH','E:\50-plex\final\S1_R1C1.tif','HISTONE_PATH','E:\50-plex\final\S1_R2C2.tif','GFP_PATH','E:\50-plex\final\S1_R1C4.tif','RECA1_PATH','E:\50-plex\final\S1_R1C6.tif'```
 
     The path to images, classification table and segmentation masked need to be entered interactively.
