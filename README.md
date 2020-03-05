@@ -210,8 +210,13 @@ __Arguments:__
 
 ## 5. Morphological Masking
 
-To get soma, processes and whole cell masks for astrocytes using S100 and GFAP biomarkers run the following:
-```matlab -nodesktop -nosplash  -r 'astrocytes_whole_brain_segmentation('DAPI_PATH','E:\50-plex\final\S1_R1C1.tif','HISTONE_PATH','E:\50-plex\final\S1_R2C2.tif','S100_PATH','E:\50-plex\final\S1_R3C5.tif','GFAP_PATH','E:\50-plex\final\S1_R3C3.tif','OUTPUT_DIR','astrocytes_OUTPUT','CLASSIFICATION_table_path','E:\50-plex\classification_results\classification_table.csv','SEGMENTATION_MASKS','data/merged_labelmask.txt')'```
+- Astrocyte Mask Generation:
+To get soma, processes and whole cell masks for astrocytes using S100 and GFAP biomarkers run the following:\
+```matlab -nodesktop -nosplash  -r 'astrocytes_whole_brain_segmentation('DAPI_PATH',\
+'E:\50-plex\final\S1_R1C1.tif','HISTONE_PATH','E:\50-plex\final\S1_R2C2.tif','S100_PATH',\
+'E:\50-plex\final\S1_R3C5.tif','GFAP_PATH','E:\50-plex\final\S1_R3C3.tif',\
+'OUTPUT_DIR','astrocytes_OUTPUT','CLASSIFICATION_table_path','E:\50-plex\classification_results\classification_table.csv',\
+'SEGMENTATION_MASKS','data/merged_labelmask.txt')'```
 
 __Arguments:__
 - `DAPI_PATH` : Path to DAPI channel
