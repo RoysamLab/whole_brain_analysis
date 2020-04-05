@@ -214,10 +214,10 @@ __Arguments:__
 
 To get soma, processes and whole cell masks for astrocytes using S100 and GFAP biomarkers run the following:
 
-`matlab -nodesktop -nosplash  -r 'astrocytes_whole_brain_segmentation('DAPI_PATH','E:\50-plex\final\S1_R1C1.tif',
+`matlab -nodesktop -nosplash  -r "astrocytes_whole_brain_segmentation('DAPI_PATH','E:\50-plex\final\S1_R1C1.tif',
 'HISTONE_PATH','E:\50-plex\final\S1_R2C2.tif','S100_PATH','E:\50-plex\final\S1_R3C5.tif','GFAP_PATH',
 'E:\50-plex\final\S1_R3C3.tif','OUTPUT_DIR','astrocytes_OUTPUT','CLASSIFICATION_table_path',
-'E:\50-plex\classification_results\classification_table.csv','SEGMENTATION_MASKS','data/merged_labelmask.txt')'`
+'E:\50-plex\classification_results\classification_table.csv','SEGMENTATION_MASKS','data/merged_labelmask.txt')"`
 
 __Arguments:__
 - `DAPI_PATH` : Path to DAPI channel
@@ -232,7 +232,7 @@ __Arguments:__
 
 To get soma, processes and whole cell masks for endothelials using GFP and RECA1 biomarkers run the following:
 
-`matlab -nodesktop -nosplash  -r 'endothelial_whole_brain_segmentation('DAPI_PATH','E:\50-plex\final\S1_R1C1.tif','HISTONE_PATH','E:\50-plex\final\S1_R2C2.tif','GFP_PATH','E:\50-plex\final\S1_R1C4.tif','RECA1_PATH','E:\50-plex\final\S1_R1C6.tif','OUTPUT_DIR','endothelial_OUTPUT','CLASSIFICATION_table_path','E:\50-plex\classification_results\classification_table.csv','SEGMENTATION_MASKS','data/merged_labelmask.txt')'`
+`matlab -nodesktop -nosplash  -r "endothelial_whole_brain_segmentation('DAPI_PATH','E:\50-plex\final\S1_R1C1.tif','HISTONE_PATH','E:\50-plex\final\S1_R2C2.tif','GFP_PATH','E:\50-plex\final\S1_R1C4.tif','RECA1_PATH','E:\50-plex\final\S1_R1C6.tif','OUTPUT_DIR','endothelial_OUTPUT','CLASSIFICATION_table_path','E:\50-plex\classification_results\classification_table.csv','SEGMENTATION_MASKS','data/merged_labelmask.txt')"`
 
 __Arguments:__
 - `DAPI_PATH` : Path to DAPI channel
@@ -247,7 +247,7 @@ __Arguments:__
 
 To get soma, processes and whole cell masks for microglia using IBA1 biomarkers run the following:
 
-`matlab -nodesktop -nosplash  -r 'microglia_whole_brain_segmentation('DAPI_PATH','E:\50-plex\final\S1_R1C1.tif','HISTONE_PATH','E:\50-plex\final\S1_R2C2.tif','IBA1_PATH','E:\50-plex\final\S1_R1C5.tif','OUTPUT_DIR','microglia_OUTPUT','CLASSIFICATION_table_path','E:\50-plex\classification_results\classification_table.csv','SEGMENTATION_MASKS','data/merged_labelmask.txt')'`
+`matlab -nodesktop -nosplash  -r "microglia_whole_brain_segmentation('DAPI_PATH','E:\50-plex\final\S1_R1C1.tif','HISTONE_PATH','E:\50-plex\final\S1_R2C2.tif','IBA1_PATH','E:\50-plex\final\S1_R1C5.tif','OUTPUT_DIR','microglia_OUTPUT','CLASSIFICATION_table_path','E:\50-plex\classification_results\classification_table.csv','SEGMENTATION_MASKS','data/merged_labelmask.txt')"`
 
 __Arguments:__
 - `DAPI_PATH` : Path to DAPI channel
@@ -261,7 +261,7 @@ __Arguments:__
 
 To get soma, processes and whole cell masks for neurons using NeuN and MAP2 biomarkers run the following:
 
-`matlab -nodesktop -nosplash  -r 'neuron_whole_brain_segmentation('DAPI_PATH','E:\50-plex\final\S1_R1C1.tif','HISTONE_PATH','E:\50-plex\final\S1_R2C2.tif','NeuN_PATH','E:\50-plex\final\S1_R2C4.tif','MAP2_PATH','E:\50-plex\final\S1_R5C9.tif','OUTPUT_DIR','neuron_OUTPUT','CLASSIFICATION_table_path','E:\50-plex\classification_results\classification_table.csv','SEGMENTATION_MASKS','data/merged_labelmask.txt')'`
+`matlab -nodesktop -nosplash  -r "neuron_whole_brain_segmentation('DAPI_PATH','E:\50-plex\final\S1_R1C1.tif','HISTONE_PATH','E:\50-plex\final\S1_R2C2.tif','NeuN_PATH','E:\50-plex\final\S1_R2C4.tif','MAP2_PATH','E:\50-plex\final\S1_R5C9.tif','OUTPUT_DIR','neuron_OUTPUT','CLASSIFICATION_table_path','E:\50-plex\classification_results\classification_table.csv','SEGMENTATION_MASKS','data/merged_labelmask.txt')"`
 
 __Arguments:__
 - `DAPI_PATH` : Path to DAPI channel
@@ -276,7 +276,7 @@ __Arguments:__
 
 To get soma, processes and whole cell masks for oligodendrocytes using Olig2 and CNPase biomarkers run the following:
 
-`matlab -nodesktop -nosplash  -r 'oligodendrocytes_whole_brain_segmentation('DAPI_PATH','E:\50-plex\final\S1_R1C1.tif','HISTONE_PATH','E:\50-plex\final\S1_R2C2.tif','OLIG2_PATH','E:\50-plex\final\S1_R1C5.tif','CNPASE_PATH','E:\50-plex\final\S1_R5C4.tif','OUTPUT_DIR','oligodendrocytes_OUTPUT','CLASSIFICATION_table_path','E:\50-plex\classification_results\classification_table.csv','SEGMENTATION_MASKS','data/merged_labelmask.txt')'`
+`matlab -nodesktop -nosplash  -r "oligodendrocytes_whole_brain_segmentation('DAPI_PATH','E:\50-plex\final\S1_R1C1.tif','HISTONE_PATH','E:\50-plex\final\S1_R2C2.tif','OLIG2_PATH','E:\50-plex\final\S1_R1C5.tif','CNPASE_PATH','E:\50-plex\final\S1_R5C4.tif','OUTPUT_DIR','oligodendrocytes_OUTPUT','CLASSIFICATION_table_path','E:\50-plex\classification_results\classification_table.csv','SEGMENTATION_MASKS','data/merged_labelmask.txt')"`
 
 __Arguments:__
 - `DAPI_PATH` : Path to DAPI channel
