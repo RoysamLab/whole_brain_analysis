@@ -183,8 +183,8 @@ def inter_channel_correct_unsupervised(input_dir, output_dir, script_file):
     df = pd.read_csv(script_file, index_col='filename')
 
     # copy the files with no correction from input to output dir
-    # for file in df.index[df['inter channel correction'] == 'No']:
-        # copyfile(os.path.join(input_dir, file), os.path.join(output_dir, file))
+    for file in df.index[df['inter channel correction'] == 'No']:
+        copyfile(os.path.join(input_dir, file), os.path.join(output_dir, file))
 
     # new df for channels with correction
     df = df[df['inter channel correction'] == 'Yes']
