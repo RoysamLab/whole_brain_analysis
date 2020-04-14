@@ -37,7 +37,7 @@ from skimage.transform import warp, ProjectiveTransform, SimilarityTransform, Af
 from skimage.filters import threshold_otsu
 
 import matplotlib.pyplot as plt
-import tifffile as tiff
+from skimage.external import tifffile as tiff
 from multiprocessing.pool import ThreadPool
 import warnings
 warnings.filterwarnings("ignore")
@@ -236,32 +236,25 @@ def select_keypointsInMask(kp, binmask):
 
 def registrationORB_tiled(targets, sources, paras, output_dir, 
                           save_target=True, 
-                          keypoints1=None, descriptors1=None, imadjust = False, verbose =0):
-    #%%
-#    source =  ["D:\research in lab\dataset\50CHN\registration_demo\before\R1C1.tif"]
-#    target0 = ["D:\research in lab\dataset\50CHN\registration_demo\before\R2C1.tif"]
-#    self.tile_shape = (400, 800)  
-    
-    #%%
-    t_0 = time.time()
-    
+                          keypoints1=None, descriptors1=None, imadjust = False, verbose =0):    
+    t_0 = time.time()    
     target0 = []  # only use target 0 and source 0 for keypoint extraction
     source0 = []
-    print("imadjust =",imadjust)
-    
+    print("imadjust =",imadjust)    
     # READING IMAGES
     for key_id, t_key in enumerate( sorted ( targets.keys() )) :                
-        # if "C0" in t_key:
         if key_id == 0:
-            target0 = tiff.imread(targets[t_key])
+            with tiff.TiffFile(targets[t_key]) as tif:
+                target0 = tif.asarray(memmap=True)
+
             input_type = target0.dtype
             target0 = rgb2gray(target0) if target0.ndim == 3 else target0
             print("Process ", t_key, " as target0", "target0.shape = ", target0.shape)
             target0_key = t_key
     for key_id, s_key in enumerate( sorted ( sources.keys() )) :
-        # if "C0" in s_key:
         if key_id == 0:
-            source0 = tiff.imread(sources[s_key])
+            with tiff.TiffFile(sources[s_key]) as tif:
+                source0 = tif.asarray(memmap=True)            
             source0 = rgb2gray(source0) if source0.ndim == 3 else source0
             print("Process ", s_key, " as source0", "source0.shape =", source0.shape)
             source0_key = s_key
@@ -338,22 +331,10 @@ def registrationORB_tiled(targets, sources, paras, output_dir,
                                           paras, tileRange_ls ,
                                           ck_shift = paras.ck_shift)
 
-    ''' 2. Transform estimation ''' 
-#    print ("match_descriptors:", src.shape)  # N * 2
-#    plt.figure()
-#    plt.scatter(src[:,0] ,src[:,1] ,"r")
-#    plt.scatter(dst[:,0] ,dst[:,1] ,"g")
-#    kps = (src, dst)
-#    model_robust01, inliers = skimage.measure.ransac( (src, dst), AffineTransform,
-#                                                min_samples         = paras.min_samples, 
-#                                                residual_threshold  = paras.residual_threshold,
-#                                                max_trials          = paras.max_trials,
-#                                                random_state        = paras.random_state,
-#                                                )
-#    print ("\t Inital inliers%  =" , ( inliers.sum()/len(inliers)) *100 )
+
     print ("num of matched desciptors =", len(src[:,0]))
 
-#%%  
+#%%   ''' 2. Transform estimation ''' 
     exam_tileRange_ls    = visfcts.crop_tiles(  ( img_rows,img_cols ),
                                                 ( int( tile_height/2), int( tile_width/2)))  
     spl_tile_ls, spl_tile_dic = spl_tiled_data ( (src, dst) , exam_tileRange_ls, paras)
@@ -368,8 +349,7 @@ def registrationORB_tiled(targets, sources, paras, output_dir,
     print ("\t Final inliers%  =" , ( inliers.sum()/len(inliers)) *100 )
     
     ''' 3. Image Warping'''
-    # we must warp, or transform, two of the three images so they will properly align with the stationary image.
-    
+    # we must warp, or transform, two of the three images so they will properly align with the stationary image.    
     # Apply same offset on all rest images       
     model_mini_dic = {}
     save_vis = True if paras.demo == True else False
@@ -383,25 +363,19 @@ def registrationORB_tiled(targets, sources, paras, output_dir,
         del keypoints0, keypoints1, descriptors0,descriptors1
 
     for s_i, source_key in enumerate( sorted ( sources.keys() )) :
-        # if "C0" in s_key:
-        source = tiff.imread(sources[source_key])
+        with tiff.TiffFile(sources[source_key]) as tif:
+            source = tif.asarray(memmap=False)              
         source = rgb2gray(source) if source.ndim == 3 else source               # uint16
         
         source = visfcts.check_shape(source,paras.target_shape)                        
         source_warped = warp(source, inverse_map = model_robust01.inverse, 
                                  output_shape = paras.target_shape)             # float64
                              
-        # rerun the registration for bootstrap regions
-        
+        # rerun the registration for bootstrap regions        
         if s_i == 0:                                      
             # merge diff regions
             __, inital_diff,binary_target,error,__ = visfcts.eval_draw_diff ( img_as_ubyte(target0),                                                            
                                                                               img_as_ubyte(source_warped) )                   
-            # if save_vis== True:
-            #     error_map_resized = resize(error_map, (error_map.shape[0]  // 2 , error_map.shape[1] // 2) ,
-            #                                             mode = "constant")            
-            #     io.imsave(os.path.join(output_dir, source_key.split(".")[0] + "-BeforeErrMap.jpg"),
-            #                 error_map_resized )    
             bgBoost_tileRange_ls = []
             for tileRange_key in spl_tile_dic.keys() :
                 tileRange = exam_tileRange_ls[tileRange_key]            #exam tile range (small)
@@ -417,11 +391,9 @@ def registrationORB_tiled(targets, sources, paras, output_dir,
                 crop_error_rate = crop_inital_diff.sum()/crop_binary_target.sum()* 100 
                 if ( crop_target0.mean() > target0_mean/4 and  crop_error_rate> 1.2 and  inlier_rate < 0.4 and
                       crop_inital_diff.sum() >  ( paras.tile_shape[0] *paras.tile_shape[1]/64 ) ):
-#                if ( len(inlier_tile) > paras.min_samples and inlier_rate < 0.3 and crop_error_rate> 0.45):
                     bgBoost_tileRange_ls.append(tileRange)                                    
             print ("bgBoost_tileRange_ls=",len(bgBoost_tileRange_ls))
-            
-            
+                        
             diff_label_final = mpfcts. merge_diff_mask ( bgBoost_tileRange_ls, inital_diff,paras)
             
             if save_vis == True:                         
@@ -485,23 +457,18 @@ def registrationORB_tiled(targets, sources, paras, output_dir,
                                    ck_tileRange[1]:ck_tileRange[3]] += source_warped_tile*fill_mask_tile
             
         print ( "source_warped.type= ", source_warped.dtype)
-        # source_warped = img_as_uint(source_warped).astype( target0.dtype)                  
         t_ransac = time.time()
 
         ### save source
-        if paras.demo :
+        # output_type = input_type
+        if input_type == np.uint8 or paras.demo:
+            print("\tsaving image as 8 bit")
             tiff.imsave(os.path.join(output_dir, source_key),
-                        img_as_ubyte(source_warped), bigtiff= False)  
-        else:
-            # output_type = input_type
-            if input_type == np.uint8:
-                print("\tsaving image as 8 bit")
-                tiff.imsave(os.path.join(output_dir, source_key),
-                            img_as_ubyte(source_warped).astype( input_type), bigtiff= True)  
-            else:  # output_type is "16bit":
-                print("\tsaving image as 16bit")
-                tiff.imsave(os.path.join(output_dir, source_key),
-                            img_as_uint(source_warped).astype( input_type), bigtiff= True)  
+                        img_as_ubyte(source_warped).astype( input_type))  
+        else:  # output_type is "16bit":
+            print("\tsaving image as 16bit")
+            tiff.imsave(os.path.join(output_dir, source_key),
+                        img_as_uint(source_warped).astype( input_type))  
                  
         if s_i == 0 and save_vis == True:            
             t_warp0 = time.time()
@@ -530,10 +497,8 @@ def registrationORB_tiled(targets, sources, paras, output_dir,
                         vis_diff_resized )
         
     t_warp = time.time()
-#    print("sources_warped.shape= ", source_warped.shape)  
     print("[Timer] Image Warping for all channels used time (h) =",
-          str((t_warp - t_ransac) / 3600))
-        
+          str((t_warp - t_ransac) / 3600))        
 
 #%%
     return keypoints1, descriptors1
@@ -546,9 +511,7 @@ def str2bool(str_input):
 def main():
 #%%
     tic = time.time()
-
     ############  
-
     # Parameters
     print("Reading Parameteres:========")
     paras = Paras()
@@ -564,13 +527,9 @@ def main():
         paras.set_tile_shape(set_tile_shape)
     elif args.tiling == []:
         paras.set_tile_shape([])  # no tiling, cautious might be extremely slow!
-    # else is [defalut 400,600]    
     output_dir = args.output_dir
     if os.path.exists(output_dir) is False:
-        os.mkdir(output_dir)        
-
-    
-    # assert args.outputType in ["16bit", "8bit"]
+        os.mkdir(output_dir)           
 
 #    Set_name = os.listdir(args.input_dir)[1].split("_")[0] + "_"
     input_dir_image = [f for f in os.listdir(args.input_dir) if f.endswith('.tif')]
@@ -634,9 +593,7 @@ def main():
         for CHN in channels_range:        
             source_fileName = Set_name + source_round + "C" + str(CHN) + ".tif"
             source_fileDir  = os. path.join(args.input_dir , source_fileName)   
-            print (" source_fileDir = " , source_fileDir)
             if os.path.isfile (source_fileDir) == True:                                     # allow not continues channel iD               
-                print("Read source image  ",source_fileName)
                 sources[source_fileName] =  source_fileDir
         # Run
         if not os.path.exists(output_dir):
