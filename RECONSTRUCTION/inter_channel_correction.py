@@ -10,14 +10,20 @@ import numpy as np
 import pandas as pd
 from scipy import optimize
 from shutil import copyfile
-from skimage import exposure
+from skimage.exposure import rescale_intensity
 from scipy import linalg as LA
 from sklearn import linear_model
 from skimage import img_as_float, img_as_uint, img_as_ubyte
 
 
-def rescale_histogram(image):
-    return exposure.rescale_intensity(image, in_range='image', out_range='dtype')
+def imadjust(image, levels=None):
+    if levels:
+        if image.dtype == 'uint8':
+            return rescale_intensity(image, in_range=(levels[0], levels[1]))
+        elif image.dtype == 'uint16':
+            return rescale_intensity(image, in_range=(levels[0]*257.0, levels[1]*257.0))  # * 65535/255
+    else:
+        return rescale_intensity(image)
 
 
 def get_unmixing_channel_names_and_values(alphas, round_files):
@@ -108,71 +114,80 @@ def inter_channel_correct_supervised(input_dir, output_dir, script_file):
     # read script
     df = pd.read_csv(script_file, index_col='filename')
 
-    # copy the files with no correction from input to output dir
-    for file in df.index[df['inter channel correction'] == 'No']:
-        copyfile(os.path.join(input_dir, file), os.path.join(output_dir, file))
-
-    # new df for channels with correction
-    df = df[df['inter channel correction'] == 'Yes']
-
     bar = progressbar.ProgressBar(max_value=df.shape[0])
     for idx, (src_name, src_info) in enumerate(df.iterrows()):
+        bar.update(idx)
+        # intra channel correction (unmixing)
+        if src_info['inter channel correction'].lower() == 'yes':
+            # get the coordinates of roi to calculate the unmixing parameters
+            xmin, ymin, xmax, ymax = src_info['xmin'], src_info['ymin'], src_info['xmax'], src_info['ymax']
 
-        # get the coordinates of roi to calculate the unmixing parameters
-        xmin, ymin, xmax, ymax = src_info['xmin'], src_info['ymin'], src_info['xmax'], src_info['ymax']
+            # read source roi
+            # TODO: fix memmap bug with offset is None
+            # src_roi = tifffile.memmap(os.path.join(input_dir, src_name))
+            src_roi = tifffile.imread(os.path.join(input_dir, src_name))[ymin:ymax, xmin:xmax]
 
-        # read source roi
-        #TODO: fix memmap bug with offset is None
-        # src_roi = tifffile.memmap(os.path.join(input_dir, src_name))
-        src_roi = tifffile.imread(os.path.join(input_dir, src_name))[ymin:ymax, xmin:xmax]
+            # TODO: extend the noise channels to variable (not 3)
+            # read noise rois
+            n_rois = np.zeros((src_roi.shape[0], src_roi.shape[1], 3), dtype=src_roi.dtype)
+            for i in range(3):
+                channel_name = src_info['channel {}'.format(i + 1)]
+                if channel_name == channel_name:  # is not NaN
+                    # TODO: fix memmap bug with offset is None
+                    # n_rois[:, :, i] = tifffile.memmap(os.path.join(input_dir, channel_name))[ymin:ymax, xmin:xmax]
+                    n_rois[:, :, i] = tifffile.imread(os.path.join(input_dir, channel_name))[ymin:ymax, xmin:xmax]
 
-        # TODO: extend the noise channels to variable (not 3)
-        # read noise rois
-        n_rois = np.zeros((src_roi.shape[0], src_roi.shape[1], 3), dtype=src_roi.dtype)
-        for i in range(3):
-            channel_name = src_info['channel {}'.format(i + 1)]
-            if channel_name == channel_name:  # is not NaN
-                # TODO: fix memmap bug with offset is None
-                # n_rois[:, :, i] = tifffile.memmap(os.path.join(input_dir, channel_name))[ymin:ymax, xmin:xmax]
-                n_rois[:, :, i] = tifffile.imread(os.path.join(input_dir, channel_name))[ymin:ymax, xmin:xmax]
+            # calculate unmixing parameters
+            alphas = calculate_unmixing_params_supervised(src_roi, n_rois)
+            n_rois = []  # free memory for noise rois
 
-        # calculate unmixing parameters
-        alphas = calculate_unmixing_params_supervised(src_roi, n_rois)
-        n_rois = []  # free memory for noise rois
+            # read source image and remove artifacts by zeroing pixels brighter than the brightest pixel in ROI
+            source = tifffile.imread(os.path.join(input_dir, src_name))
+            img_type = source.dtype
 
-        # read source image and remove artifacts by zeroing pixels brighter than the brightest pixel in ROI
-        source = tifffile.imread(os.path.join(input_dir, src_name))
-        img_type = source.dtype
+            # TODO: disable temporary -> come up with solid approach
+            # clean artifacts in source image
+            # source[source > np.max(src_roi)] = 0
 
-        # clean artifacts in source image
-        source[source > np.max(src_roi)] = 0
-        source = img_as_float(source)  # convert to float for subtraction
-        src_roi = []
+            source = img_as_float(source)  # convert to float for subtraction
+            src_roi = []
 
-        for i in range(3):
-            channel_name = src_info['channel {}'.format(i + 1)]
-            if channel_name == channel_name:
-                noise = img_as_float(tifffile.imread(os.path.join(input_dir, channel_name)))
-                source -= (alphas[i] * noise)
+            for i in range(3):
+                channel_name = src_info['channel {}'.format(i + 1)]
+                if channel_name == channel_name:
+                    noise = img_as_float(tifffile.imread(os.path.join(input_dir, channel_name)))
+                    source -= (alphas[i] * noise)
 
-        source[source < 0] = 0
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            if img_type == 'uint8':
-                source = img_as_ubyte(source)
-            elif img_type == 'uint16':
-                source = img_as_uint(source)
+            source[source < 0] = 0
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                if img_type == 'uint8':
+                    source = img_as_ubyte(source)
+                elif img_type == 'uint16':
+                    source = img_as_uint(source)
+                else:
+                    sys.exit('image type not uint8 or uint16')
+
+        # if no inter correction and no level -> copy from input
+        elif src_info['inter channel correction'].lower() == 'no':
+            if 'level' in src_info:
+                if src_info['level'] != src_info['level']:
+                    copyfile(os.path.join(input_dir, src_name), os.path.join(output_dir, src_name))
+                    continue
+                else:
+                    source = tifffile.imread(os.path.join(input_dir, src_name))
+
+         # apply image adjust based on Photoshop level
+        if 'level' in src_info:
+            if src_info['level'] != src_info['level']:
+                source = imadjust(source)
             else:
-                sys.exit('image type not uint8 or uint16')
-
-        # rescale histogram of image
-        source = rescale_histogram(source)
+                levels = list(map(int, src_info['level'].split(',')))
+                source = imadjust(source, levels=levels)
 
         # save image
         save_name = os.path.join(output_dir, src_name)
         tifffile.imsave(save_name, source, bigtiff=True)
-
-        bar.update(idx)
 
 
 def inter_channel_correct_unsupervised(input_dir, output_dir, script_file):
@@ -247,7 +262,7 @@ def inter_channel_correct_unsupervised(input_dir, output_dir, script_file):
 
 
             # rescale histogram of image
-            source = rescale_histogram(source)
+            source = rescale_intensity(source)
 
             # save image
             save_name = os.path.join(output_dir, filename)

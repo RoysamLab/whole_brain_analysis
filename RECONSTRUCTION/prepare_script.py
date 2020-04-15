@@ -21,7 +21,7 @@ def create_script(script_name, input_dir, crop_position, brightfield=None):
 
     # create DataFrame for script
     df = pd.DataFrame(index=files, columns=['biomarker', 'intra channel correction',
-                                            'inter channel correction', 'channel 1', 'channel 2', 'channel 3',
+                                            'inter channel correction', 'channel 1', 'channel 2', 'channel 3', 'level',
                                             'xmin', 'ymin', 'xmax', 'ymax'])
     df.index.name = 'filename'
 
