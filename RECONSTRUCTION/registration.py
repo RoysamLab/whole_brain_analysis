@@ -73,7 +73,7 @@ parser.add_argument('-mt', '--maxtrials', required=False, default=5000, type=int
                     help=" max_trials ")
 parser.add_argument('-mp', '--multiprocess', required=False, default="T", type=str,
                     help=" 'T' multi processing, 'F' single processing")
-parser.add_argument('--imadjust', required=False, default = 'F',type = str, 
+parser.add_argument('--imadjust', required=False, default = 'T',type = str, 
                         help='whether to adjust the image for feature extraction')    
 parser.add_argument('--bootstrap', required=False, default = 'T',type = str, 
                         help='whether to adopt bootstrap to enhance registration')    
