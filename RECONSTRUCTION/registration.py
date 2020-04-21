@@ -72,7 +72,7 @@ parser.add_argument('-kp_path', '--keypoint_dir',
 parser.add_argument('-mt', '--maxtrials', required=False, default=5000, type=int,
                     help=" max_trials ")
 parser.add_argument('-mp', '--multiprocess', required=False, default="T", type=str,
-                    help=" 'T' multi processing, 'F' single processing")
+                    help=" 'T' multi processing, 'F' single processing, 'N' specify number of threads", )
 parser.add_argument('--imadjust', required=False, default = 'T',type = str, 
                         help='whether to adjust the image for feature extraction')    
 parser.add_argument('--bootstrap', required=False, default = 'T',type = str, 
@@ -132,7 +132,7 @@ class Paras(object):
         self.keypoint_dir = None
         self.demo = False
         self.bootstrap = True
-        
+        self.imadjust = True
 
     def set_n_keypoints(self, n_keypoints):
         self.n_keypoints = n_keypoints
@@ -163,6 +163,7 @@ class Paras(object):
         print("\tkeypoint_dir = ", self.keypoint_dir)
         print("\tdemo = ", self.demo)
         print("\tbgBoost = ", self.bootstrap)
+        print("\timadjust = ", self.imadjust)
 
 def spl_tiled_data (data, tileRange_ls ,paras):
     spl_tile_ls = []
@@ -500,49 +501,25 @@ def registrationORB_tiled(targets, sources, paras, output_dir,
     print("[Timer] Image Warping for all channels used time (h) =",
           str((t_warp - t_ransac) / 3600))        
 
-#%%
     return keypoints1, descriptors1
 
 
-def str2bool(str_input):
-    bool_result = True if str_input.lower() in ["t", 'true', '1', "yes", 'y'] else False
-    return bool_result
+def registration (input_dir,output_dir,target_round,paras):
 
-def main():
-#%%
-    tic = time.time()
-    ############  
-    # Parameters
-    print("Reading Parameteres:========")
-    paras = Paras()
-    paras.set_n_keypoints(args.nKeypoint)
-    paras.set_max_trials(args.maxtrials)
-
-    paras.multiprocess = False if args.multiprocess.lower() in ["f", "0", "false"] else args.multiprocess
-    paras.keypoint_dir = args.keypoint_dir
-    paras.bootstrap = str2bool( args.bootstrap)
-
-    if "," in args.tiling:
-        set_tile_shape = [int(s) for s in re.findall(r'\d+', args.tiling)]
-        paras.set_tile_shape(set_tile_shape)
-    elif args.tiling == []:
-        paras.set_tile_shape([])  # no tiling, cautious might be extremely slow!
-    output_dir = args.output_dir
     if os.path.exists(output_dir) is False:
         os.mkdir(output_dir)           
 
-#    Set_name = os.listdir(args.input_dir)[1].split("_")[0] + "_"
-    input_dir_image = [f for f in os.listdir(args.input_dir) if f.endswith('.tif')]
+    #    Set_name = os.listdir(args.input_dir)[1].split("_")[0] + "_"
+    input_dir_image = [f for f in os.listdir(input_dir) if f.endswith('.tif')]
     Set_name = input_dir_image[0].split("_")[0] + "_"    
     Set_name = Set_name if "S" in Set_name else ""
     print ("Set_name=",Set_name)
     # the round that all other rounds are going to registered to !
-    target_round = args.targetRound #"R2"
 
-    if str2bool(args.demo) is False:
+
+    if paras.demo is False:
         print("Run all channels")
         # get all the channel and round id
-        paras.demo = False
         channels_range = []
         source_round_ls = []
         for fileName in sorted(input_dir_image):
@@ -561,7 +538,7 @@ def main():
     else:  # only for testing or tunning the paras
         channels_range = [1]
         print("Run only C1 channel for all rounds")
-        paras.demo = True
+        # paras.demo = True
 
         source_round_ls = []
         for fileName in sorted(input_dir_image)[:1]:
@@ -574,7 +551,7 @@ def main():
                     round_id = round_id.split("_")[1]
                 if round_id not in source_round_ls and round_id != target_round:
                     source_round_ls.append(round_id)
-        print("args.demo :", args.demo, "\n Run for Channel ", channels_range, "\t Rounds: ", source_round_ls)
+        print("args.demo :", paras.demo, "\n Run for Channel ", channels_range, "\t Rounds: ", source_round_ls)
 
     ''' Run for images '''
     # target (reference image)
@@ -583,8 +560,8 @@ def main():
     for CHN in channels_range:
         target_fileName = Set_name + target_round + "C" + str(CHN) + ".tif"
         print("Read target image ", target_fileName)
-        targets[target_fileName] = os.path.join(args.input_dir, target_fileName)
-        shutil.copy (targets[target_fileName] , os.path.join(args.output_dir, target_fileName))
+        targets[target_fileName] = os.path.join(input_dir, target_fileName)
+        shutil.copy (targets[target_fileName] , os.path.join(output_dir, target_fileName))
         
     # source(image to be registered)
     for sr_i, source_round in enumerate(source_round_ls):
@@ -592,7 +569,7 @@ def main():
         print("*" * 10 + " " + source_round + "\n")
         for CHN in channels_range:        
             source_fileName = Set_name + source_round + "C" + str(CHN) + ".tif"
-            source_fileDir  = os. path.join(args.input_dir , source_fileName)   
+            source_fileDir  = os. path.join(input_dir , source_fileName)   
             if os.path.isfile (source_fileDir) == True:                                     # allow not continues channel iD               
                 sources[source_fileName] =  source_fileDir
         # Run
@@ -600,30 +577,61 @@ def main():
             os.makedirs(output_dir)
         save_target = True if sr_i == 0 else False  # only save target files in the last round
         
-#%%
+
         if sr_i == 0:  # only need keypoint extraction for target for once
             keypoints1, descriptors1 = registrationORB_tiled(targets, sources, paras,                                                             
-                                                            output_dir=output_dir,
+                                                            output_dir  =output_dir,
                                                             # output_type=args.outputType,
                                                             # input_type=args.inputType,
-                                                            save_target=save_target,
-                                                            imadjust= str2bool(args.imadjust) 
+                                                            save_target = save_target,
+                                                            imadjust    = paras.imadjust 
                                                             )            
         else:
             _, _ = registrationORB_tiled(targets, sources, paras,
-                                        output_dir=output_dir,
+                                        output_dir = output_dir,
                                         # output_type=args.outputType,
                                         # input_type=args.inputType,
-                                        save_target=save_target,
-                                        imadjust=str2bool(args.imadjust),
-                                        keypoints1=keypoints1,
-                                        descriptors1=descriptors1)
+                                        save_target = save_target,
+                                        imadjust    = paras.imadjust ,
+                                        keypoints1  = keypoints1,
+                                        descriptors1= descriptors1)
 
         print("\nRegistrationORB function for round", source_round, " finished!\n====================\n")
 
         
     print("\nRegistrationORB function finished!\n====================\n")
     print("Result in ", output_dir)
+
+
+def str2bool(str_input):
+    bool_result = True if str_input.lower() in ["t", 'true', '1', "yes", 'y'] else False
+    return bool_result
+
+def main():
+#%%
+    tic = time.time()
+    ############  
+    # Parameters
+    print("Reading Parameteres:========")
+    paras = Paras()
+    paras.set_n_keypoints(args.nKeypoint)
+    paras.set_max_trials(args.maxtrials)
+
+    paras.multiprocess  = False if args.multiprocess.lower() in ["f", "0", "false"] else args.multiprocess
+    paras.keypoint_dir  = args.keypoint_dir
+    paras.bootstrap     = str2bool(args.bootstrap)
+    paras.demo          = str2bool(args.demo) 
+    paras.imadjust      = str2bool(args.imadjust) 
+
+    if "," in args.tiling:
+        set_tile_shape = [int(s) for s in re.findall(r'\d+', args.tiling)]
+        paras.set_tile_shape(set_tile_shape)
+    elif args.tiling == []:
+        paras.set_tile_shape([])  # no tiling, cautious might be extremely slow!
+    
+    #    target_round =  #"R2"
+
+    registration (args.input_dir,args.output_dir,args.targetRound,paras)
 
     toc = time.time()
     print("total time is (h) =", str((toc - tic) / 3600))
