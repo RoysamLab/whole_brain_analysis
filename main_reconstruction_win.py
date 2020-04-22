@@ -32,11 +32,15 @@ if args.MODE == 'unsupervised':
 args = parser.parse_args()
 
 # REGISTRATION
+from RECONSTRUCTION.registration import registration
+
 input_dir = args.INPUT_DIR
 output_dir = os.path.join(args.OUTPUT_DIR, 'registered')
-command = ' '.join([r"python RECONSTRUCTION/registration.py",
-                    "--input_dir={}".format(input_dir),
-                    "--output_dir={}".format(output_dir)])
+# command = ' '.join([r"python RECONSTRUCTION/registration.py",
+#                     "--input_dir={}".format(input_dir),
+#                     "--output_dir={}".format(output_dir)])
+registration(input_dir,output_dir)
+
 start = time.time()
 p = subprocess.call(command, shell=True)
 duration = time.time() - start
