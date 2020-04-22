@@ -33,7 +33,7 @@ args = parser.parse_args()
 
 
 # REGISTRATION
-from RECONSTRUCTION.registration import registration
+from RECONSTRUCTION.registration import *
 input_dir = args.INPUT_DIR
 output_dir = os.path.join(args.OUTPUT_DIR, 'registered')
 # command = ' '.join([r"python RECONSTRUCTION/registration.py",
