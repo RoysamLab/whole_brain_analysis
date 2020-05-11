@@ -49,41 +49,7 @@ import vis_fcts as visfcts
 from ransac_tile import ransac_tile
 
 #import matplotlib.pyplot as plt
-parser = argparse.ArgumentParser(description='***  Whole brain segentation pipeline on DAPI + Histone Channel ***'
-                                             + '\ne.g\n'
-                                             + '\t$ python3 registration.py '
-                                             + '-i $INPUT_DIR'
-                                             + '-o $OUTPUT_DIR',
-                                 formatter_class=argparse.RawTextHelpFormatter)
 
-parser.add_argument('-d', '--demo', default='False', type=str,
-                    help=" 'T' only match channel 0, 'F' match all channels")
-parser.add_argument('-i', '--input_dir', 
-                    default=r"D:\research in lab\dataset\50CHN\registration_demo\demo",
-                    help='Path to the directory of input images')
-parser.add_argument('-o', '--output_dir',
-                    default=r"D:\research in lab\dataset\50CHN\registration_demo\after",
-                    help='Path to the directory to save output images')
-parser.add_argument('-nk', '--nKeypoint', required=False, default=300000, type=int,
-                    help=" nKeypoint ")
-parser.add_argument('-kp_path', '--keypoint_dir', 
-                    default= None,
-                    help='Path to the directory to read the extracted keypoins')
-parser.add_argument('-mt', '--maxtrials', required=False, default=5000, type=int,
-                    help=" max_trials ")
-parser.add_argument('-mp', '--multiprocess', required=False, default="T", type=str,
-                    help=" 'T' multi processing, 'F' single processing, 'N' specify number of threads", )
-parser.add_argument('--imadjust', required=False, default = 'T',type = str, 
-                        help='whether to adjust the image for feature extraction')    
-parser.add_argument('--bootstrap', required=False, default = 'T',type = str, 
-                        help='whether to adopt bootstrap to enhance registration')    
-parser.add_argument('--targetRound', required=False, default='R2', type=str,
-                    help="keyword for target round")        
-# the smaller the tilling, longer the time, better the results
-parser.add_argument('-t', '--tiling', required=False, default="1000,1000", type=str,
-                    help=" 'tiling_r, tilling_r' or '[]' or None, for 'user specified tiling shape', 'no tilling',or default ")
-
-args = parser.parse_args()
 
 #%%
 def log(text, array=None):
@@ -124,7 +90,7 @@ class Paras(object):
 
         # other user defined paras:
         self.target_shape = (4000,8000)
-        self.tile_shape = (400, 800)        
+        self.tile_shape = (1000, 1000)         # # the smaller the tilling, longer the time, better the results
         self.multiprocess = False
         self.ck_shift = 100  # check window dilation width for seaching robust keypoint   # 50
         self.crop_overlap = 10  
@@ -224,7 +190,6 @@ def mini_register(target,source,paras,
 
     return model_robust01
     
-
 def select_keypointsInMask(kp, binmask):
     # kp = N by 2
     # binmask is same size as image, 1
@@ -233,7 +198,6 @@ def select_keypointsInMask(kp, binmask):
         if binmask[int(x),int(y)] > 0:
             selected_kp[i] = True                 
     return selected_kp
-
 
 def registrationORB_tiled(targets, sources, paras, output_dir, 
                           save_target=True, 
@@ -335,7 +299,7 @@ def registrationORB_tiled(targets, sources, paras, output_dir,
 
     print ("num of matched desciptors =", len(src[:,0]))
 
-#%%   ''' 2. Transform estimation ''' 
+    #%%   ''' 2. Transform estimation ''' 
     exam_tileRange_ls    = visfcts.crop_tiles(  ( img_rows,img_cols ),
                                                 ( int( tile_height/2), int( tile_width/2)))  
     spl_tile_ls, spl_tile_dic = spl_tiled_data ( (src, dst) , exam_tileRange_ls, paras)
@@ -504,7 +468,27 @@ def registrationORB_tiled(targets, sources, paras, output_dir,
     return keypoints1, descriptors1
 
 
-def registration (input_dir,output_dir,target_round,paras):
+def registration (input_dir,output_dir,target_round = "R2", imadjust = True,
+                  multiprocess = True, keypoint_dir = None,bootstrap = True,
+                  demo = False , tiling = "1000,1000" ,nKeypoint=  300000):
+
+    # Parameters
+    print("Reading Parameteres:========")
+    paras = Paras()
+    paras.set_n_keypoints(nKeypoint)
+    # paras.set_max_trials(args.maxtrials)
+
+    paras.multiprocess  = False if str(multiprocess).lower() in ["f", "0", "false"] else str(multiprocess)
+    paras.keypoint_dir  = keypoint_dir
+    paras.bootstrap     = str2bool(bootstrap)
+    paras.demo          = str2bool(demo) 
+    paras.imadjust      = str2bool(imadjust) 
+
+    if "," in tiling:
+        set_tile_shape = [int(s) for s in re.findall(r'\d+', tiling)]
+        paras.set_tile_shape(set_tile_shape)
+    elif tiling == []:
+        paras.set_tile_shape([])  # no tiling, cautious might be extremely slow!
 
     if os.path.exists(output_dir) is False:
         os.mkdir(output_dir)           
@@ -581,16 +565,13 @@ def registration (input_dir,output_dir,target_round,paras):
         if sr_i == 0:  # only need keypoint extraction for target for once
             keypoints1, descriptors1 = registrationORB_tiled(targets, sources, paras,                                                             
                                                             output_dir  =output_dir,
-                                                            # output_type=args.outputType,
-                                                            # input_type=args.inputType,
+
                                                             save_target = save_target,
                                                             imadjust    = paras.imadjust 
                                                             )            
         else:
             _, _ = registrationORB_tiled(targets, sources, paras,
                                         output_dir = output_dir,
-                                        # output_type=args.outputType,
-                                        # input_type=args.inputType,
                                         save_target = save_target,
                                         imadjust    = paras.imadjust ,
                                         keypoints1  = keypoints1,
@@ -602,36 +583,54 @@ def registration (input_dir,output_dir,target_round,paras):
     print("\nRegistrationORB function finished!\n====================\n")
     print("Result in ", output_dir)
 
-
 def str2bool(str_input):
+    str_input = str(str_input) if type(str_input) != str else str_input
     bool_result = True if str_input.lower() in ["t", 'true', '1', "yes", 'y'] else False
     return bool_result
 
 def main():
-#%%
+    parser = argparse.ArgumentParser(description='***  Whole brain segentation pipeline on DAPI + Histone Channel ***'
+                                             + '\ne.g\n'
+                                             + '\t$ python3 registration.py '
+                                             + '-i $INPUT_DIR'
+                                             + '-o $OUTPUT_DIR',
+                                 formatter_class=argparse.RawTextHelpFormatter)
+
+    parser.add_argument('-d', '--demo', default='False', type=str,required=False,
+                        help=" 'T' only match channel 0, 'F' match all channels")
+    parser.add_argument('-i', '--input_dir', 
+                        default=r"D:\research in lab\dataset\50CHN\registration_demo\demo",
+                        help='Path to the directory of input images')
+    parser.add_argument('-o', '--output_dir',
+                        default=r"D:\research in lab\dataset\50CHN\registration_demo\after",
+                        help='Path to the directory to save output images')
+    parser.add_argument('-nk', '--nKeypoint', required=False, default=300000, type=int,
+                        help=" nKeypoint ")
+    parser.add_argument('-kp_path', '--keypoint_dir', 
+                        default= None, required=False,
+                        help='Path to the directory to read the extracted keypoins')
+    parser.add_argument('-mp', '--multiprocess', required=False, default="T", type=str,
+                        help=" 'T' multi processing, 'F' single processing, 'N' specify number of threads", )
+    parser.add_argument('--imadjust', required=False, default = 'T',type = str, 
+                            help='whether to adjust the image for feature extraction')    
+    parser.add_argument('--bootstrap', required=False, default = 'T',type = str, 
+                            help='whether to adopt bootstrap to enhance registration')    
+    parser.add_argument('--targetRound', required=False, default='R2', type=str,
+                        help="keyword for target round")        
+    parser.add_argument('-t', '--tiling', required=False, default="1000,1000", type=str,
+                        help=" 'tiling_r, tilling_r' or '[]' or None, for 'user specified tiling shape', 'no tilling',or default ")
+
+    args = parser.parse_args()
+    #%%
     tic = time.time()
     ############  
-    # Parameters
-    print("Reading Parameteres:========")
-    paras = Paras()
-    paras.set_n_keypoints(args.nKeypoint)
-    paras.set_max_trials(args.maxtrials)
 
-    paras.multiprocess  = False if args.multiprocess.lower() in ["f", "0", "false"] else args.multiprocess
-    paras.keypoint_dir  = args.keypoint_dir
-    paras.bootstrap     = str2bool(args.bootstrap)
-    paras.demo          = str2bool(args.demo) 
-    paras.imadjust      = str2bool(args.imadjust) 
-
-    if "," in args.tiling:
-        set_tile_shape = [int(s) for s in re.findall(r'\d+', args.tiling)]
-        paras.set_tile_shape(set_tile_shape)
-    elif args.tiling == []:
-        paras.set_tile_shape([])  # no tiling, cautious might be extremely slow!
-    
     #    target_round =  #"R2"
 
-    registration (args.input_dir,args.output_dir,args.targetRound,paras)
+    registration (args.input_dir,args.output_dir,      # only those 2 are necessary
+                  args.targetRound,args.imadjust,
+                  args.multiprocess, args.keypoint_dir, args.bootstrap,
+                  args.demo,  args.tiling ,args. nKeypoint                 )
 
     toc = time.time()
     print("total time is (h) =", str((toc - tic) / 3600))

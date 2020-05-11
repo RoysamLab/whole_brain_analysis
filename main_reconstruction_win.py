@@ -32,17 +32,14 @@ if args.MODE == 'unsupervised':
 args = parser.parse_args()
 
 # REGISTRATION
-from RECONSTRUCTION.registration import registration
-
+RECONSTRUCTION_DIR = os.path.join(os.getcwd(),"RECONSTRUCTION")
+sys.path.append(RECONSTRUCTION_DIR)  # To find local version of the library
+from registration import registration
+start = time.time()
 input_dir = args.INPUT_DIR
 output_dir = os.path.join(args.OUTPUT_DIR, 'registered')
-# command = ' '.join([r"python RECONSTRUCTION/registration.py",
-#                     "--input_dir={}".format(input_dir),
-#                     "--output_dir={}".format(output_dir)])
 registration(input_dir,output_dir)
 
-start = time.time()
-p = subprocess.call(command, shell=True)
 duration = time.time() - start
 m, s = divmod(int(duration), 60)
 h, m = divmod(m, 60)
