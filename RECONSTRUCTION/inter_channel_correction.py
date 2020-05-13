@@ -168,22 +168,31 @@ def inter_channel_correct_supervised(input_dir, output_dir, script_file):
                 else:
                     sys.exit('image type not uint8 or uint16')
 
-        # if no inter correction and no level -> copy from input
-        elif src_info['inter channel correction'].lower() == 'no':
+            levels = None
+            # if level column in script and levels specified -> update level
             if 'level' in src_info:
+                # if levels specified
+                if src_info['level'] == src_info['level']:
+                    levels = list(map(int, src_info['level'].split(',')))
+            source = imadjust(source, levels=levels)
+
+        # if no inter correction -> just level (if defined)
+        elif src_info['inter channel correction'].lower() == 'no':
+            # if no level column in script -> just copy and paste
+            if 'level' not in src_info:
+                copyfile(os.path.join(input_dir, src_name), os.path.join(output_dir, src_name))
+                continue
+            # if level column in script
+            else:
+                # if no level for channel
                 if src_info['level'] != src_info['level']:
                     copyfile(os.path.join(input_dir, src_name), os.path.join(output_dir, src_name))
                     continue
+                # if level for channel apply image adjust based on Photoshop level
                 else:
                     source = tifffile.imread(os.path.join(input_dir, src_name))
-
-         # apply image adjust based on Photoshop level
-        if 'level' in src_info:
-            if src_info['level'] != src_info['level']:
-                source = imadjust(source)
-            else:
-                levels = list(map(int, src_info['level'].split(',')))
-                source = imadjust(source, levels=levels)
+                    levels = list(map(int, src_info['level'].split(',')))
+                    source = imadjust(source, levels=levels)
 
         # save image
         save_name = os.path.join(output_dir, src_name)
