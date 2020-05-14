@@ -143,14 +143,14 @@
     
     whole_cell=imfill(soma_plus_nucleus+cytoplasm+membrane,'holes');
     
-    subplot(2,4,1); imshow(imadjust(imcrop(im_gfp,[x_c-half_w_p, y_c-half_w_p, w_p, w_p])));
-    subplot(2,4,2); imshow(imadjust(imcrop(im_gfp,[x_c-half_w_p, y_c-half_w_p, w_p, w_p])));
-%    
-    subplot(2,4,3); imshow(nucleus_mask); title('Nucleus');
-    subplot(2,4,4); imshow(soma_mask); title('SOMA');
-    subplot(2,4,5); imshow(cytoplasm); title('Cytoplasm');
-    subplot(2,4,6); imshow(membrane); title('Membrane');
-    subplot(2,4,7); imshow(whole_cell); title('Whole cell');
+%     subplot(2,4,1); imshow(imadjust(imcrop(im_gfp,[x_c-half_w_p, y_c-half_w_p, w_p, w_p])));
+%     subplot(2,4,2); imshow(imadjust(imcrop(im_gfp,[x_c-half_w_p, y_c-half_w_p, w_p, w_p])));
+% %    
+%     subplot(2,4,3); imshow(nucleus_mask); title('Nucleus');
+%     subplot(2,4,4); imshow(soma_mask); title('SOMA');
+%     subplot(2,4,5); imshow(cytoplasm); title('Cytoplasm');
+%     subplot(2,4,6); imshow(membrane); title('Membrane');
+%     subplot(2,4,7); imshow(whole_cell); title('Whole cell');
 %     
 %    figure;
 %    imshow(imfuse(imadjust(imcrop(im_dapi_histone,[x_c-half_w_p, y_c-half_w_p, w_p, w_p])),imadjust(imcrop(im_gfp,[x_c-half_w_p, y_c-half_w_p, w_p, w_p]))));

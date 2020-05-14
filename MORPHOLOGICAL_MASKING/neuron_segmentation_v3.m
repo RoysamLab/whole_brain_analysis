@@ -1,6 +1,5 @@
-function [soma_mask, processes, cytoplasm, membrane, whole_cell] = microglia_segmentation_v3(im_iba1,nucleus_mask,x_c,y_c,~,w_s,w_p)
+function [soma_mask, processes, cytoplasm, membrane, whole_cell] = neuron_segmentation_v3(im_neun,im_map2,nucleus_mask,x_c,y_c,w_n,w_s,w_p)
     
-    %half_w_n=round(w_n/2);
     half_w_s=round(w_s/2);
     half_w_p=round(w_p/2);
     
@@ -11,62 +10,64 @@ function [soma_mask, processes, cytoplasm, membrane, whole_cell] = microglia_seg
 %     
 %     nucleus_mask=zeros(w_p+1,w_p+1);
 %     nucleus_mask(half_w_p-half_w_n:half_w_p+half_w_n,half_w_p-half_w_n:half_w_p+half_w_n)=get_center_cell(dapi_histone_crop);
-    
+%     
     %% SOMA MASK %%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%%
-    iba1_crop=imcrop(im_iba1,[x_c-half_w_s,y_c-half_w_s,w_s,w_s]);
-    iba1_crop_bw=imbinarize(iba1_crop,graythresh(iba1_crop));
+    %get Neun crop
+    neun_crop=imcrop(im_neun,[x_c-half_w_s,y_c-half_w_s,w_s,w_s]);
+    neun_crop_bw=imbinarize(neun_crop,graythresh(neun_crop));
+    %remove connecting neuns
+    neun_crop_bw=imdilate(imerode(neun_crop_bw,strel('disk',2)),strel('disk',2));
     
-    iba1_props=regionprops(iba1_crop_bw,'all');
-    iba1_cs=vertcat(iba1_props.Centroid);
-    iba1_cx=iba1_cs(:,1);
-    iba1_cy=iba1_cs(:,2);
+    neun_props=regionprops(neun_crop_bw,'all');
+    neun_cs=vertcat(neun_props.Centroid);
+    neun_cx=neun_cs(:,1);
+    neun_cy=neun_cs(:,2);
     
-    [centroid_x, ~] = find_closest_points_cnst(iba1_cx,iba1_cy,half_w_s,half_w_s);
-     if length(centroid_x)>1 %pick larger area
-        iba1_idx=find(iba1_cx==centroid_x(1));
-        area_max=iba1_props(iba1_idx).Area;
+    [centroid_x, ~] = find_closest_points_cnst(neun_cx,neun_cy,w_n,w_n);
+    
+    if length(centroid_x)>1 %pick larger area
+        neun_idx=find(neun_cx==centroid_x(1));
+        area_max=neun_props(neun_idx).Area;
         for j=1:length(centroid_x)
-            area_curr=iba1_props(j).Area;
+            area_curr=neun_props(j).Area;
             if area_curr>area_max
-                area_max=iba1_props(j).Area;
-                iba1_idx=j;
+                area_max=neun_props(j).Area;
+                neun_idx=j;
             end
         end
     else
-        iba1_idx=find(iba1_cx==centroid_x);
+        neun_idx=find(neun_cx==centroid_x);
     end
-            
-    iba1_BB=iba1_props(iba1_idx).BoundingBox;
-
-    iba1_cell_bw=zeros(size(iba1_crop_bw));
+    neun_BB=neun_props(neun_idx).BoundingBox;
+    
+    neun_cell_bw=zeros(size(neun_crop_bw));
     %center it
-    iba1_cell_bw(ceil(iba1_BB(2)):ceil(iba1_BB(2))+iba1_BB(4)-1,ceil(iba1_BB(1)):ceil(iba1_BB(1))+iba1_BB(3)-1)=iba1_props(iba1_idx).Image;
+    neun_cell_bw(ceil(neun_BB(2)):ceil(neun_BB(2))+neun_BB(4)-1,ceil(neun_BB(1)):ceil(neun_BB(1))+neun_BB(3)-1)=neun_props(neun_idx).Image;
     %fill any possible holes
-    iba1_cell_bw=imfill(iba1_cell_bw,'holes');
+    neun_cell_bw=imfill(neun_cell_bw,'holes');
     
-    iba1_cell_bw1=zeros(w_p+1,w_p+1);
-    iba1_cell_bw1(half_w_p-half_w_s:half_w_p+half_w_s,half_w_p-half_w_s:half_w_p+half_w_s)=iba1_cell_bw;
+    %defining nucleus and soma masks
+    im1=imbinarize(neun_cell_bw+imcrop(nucleus_mask,[half_w_p-half_w_s,half_w_p-half_w_s,w_s,w_s]),0.01);
+    im1_props=regionprops(im1,'all');
+    im1_BB=im1_props(1).BoundingBox;
     
-    %remove potential arbor detected
-    windowSize = 11;
-    kernel = ones(windowSize) / windowSize ^ 2;
-    blurryImage = conv2(im2single(iba1_cell_bw1), kernel, 'same');
-    binaryImage = blurryImage > 0.5; % Rethreshold
+    im2=zeros(size(neun_cell_bw));
+    im2(ceil(im1_BB(2)):ceil(im1_BB(2))+im1_BB(4)-1,ceil(im1_BB(1)):ceil(im1_BB(1))+im1_BB(3)-1)=im1_props(1).ConvexImage;
+        
+    soma_plus_nucleus=zeros(w_p+1,w_p+1);
+    soma_plus_nucleus(half_w_p-half_w_s:half_w_p+half_w_s,half_w_p-half_w_s:half_w_p+half_w_s)=im2;
     
-    soma_plus_nucleus=imbinarize(binaryImage+nucleus_mask,0.01);
     soma_mask=imbinarize(soma_plus_nucleus-nucleus_mask,0.005);
     
     %% PROCESSES MASK %%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%%%
-    iba1_crop=imcrop(im_iba1,[x_c-half_w_p, y_c-half_w_p, w_p, w_p]);
-    iba1_minus_soma=iba1_crop.*uint16(~soma_plus_nucleus);
+    map2_crop=imcrop(im_map2,[x_c-half_w_p, y_c-half_w_p, w_p, w_p]);
+    map2_crop_bw=imbinarize(map2_crop,1.2*graythresh(map2_crop));
     
-    iba1_minus_soma_bw=imbinarize(iba1_minus_soma,1.2*graythresh(iba1_minus_soma));
-    
-    %region growing
+    %region growing    
     positive=soma_plus_nucleus;
-    negative=~imbinarize(iba1_minus_soma_bw+soma_plus_nucleus,0.005);
+    negative=~map2_crop_bw;
 
     labels=positive-1*negative;
     labels_out=grow_from_seeds(labels);
@@ -86,17 +87,17 @@ function [soma_mask, processes, cytoplasm, membrane, whole_cell] = microglia_seg
     [y_b,x_b]=find(B1-B);
     
     %These points (x_b,y_b) should be a part of skel: Refine points
-    pts_i=[];
+    pts_i=[];%zeros(1,length(x_b));
     
     for j=1:length(x_b)
         val=skel(y_b(j),x_b(j));
         if val>0
-            pts_i=[pts_i;[y_b(j),x_b(j)]];
+            pts_i=[pts_i;y_b(j),x_b(j)];
         end
     end
     
     %These points (x_e,y_e) should not be a part of edge of soma: Refine points
-    pts_j=[];
+    pts_j=[];%zeros(1,length(x_e));
     for j=1:length(x_e)
         val=edge_soma(y_e(j),x_e(j));
         if val==0
@@ -122,11 +123,11 @@ function [soma_mask, processes, cytoplasm, membrane, whole_cell] = microglia_seg
     else
         idx_j=-1;
     end
-    
+
     for i=1:length(arbor_props)
         pts=arbor_props(i).PixelList;%(x,y)
         idx=pts(:,1)*size(im_arbors,1)+pts(:,2);
-        if any(intersect(idx,idx_i))>0 && any(intersect(idx,idx_j))>0 %how to find intersection here????
+        if any(intersect(idx,idx_i))>0 && any(intersect(idx,idx_j))>0 
             BB=arbor_props(i).BoundingBox;
             im_arbors_ref(ceil(BB(2)):ceil(BB(2))+BB(4)-1,ceil(BB(1)):ceil(BB(1))+BB(3)-1)=arbor_props(i).Image;
         end
@@ -141,15 +142,15 @@ function [soma_mask, processes, cytoplasm, membrane, whole_cell] = microglia_seg
     
     cytoplasm=imbinarize(whole_cell-nucleus_mask-membrane,0.005);
     
-%     %subplot(2,4,1); imshow(imadjust(imcrop(im_dapi_histone,[x_c-half_w_p,y_c-half_w_p,w_p,w_p]))); title('DAPI Histone');
-%     subplot(2,4,1); imshow(imadjust(iba1_crop)); title('IBA1');
-%     subplot(2,4,2); imshow(nucleus_mask); title('Nucleus Mask');
-%     subplot(2,4,3); imshow(soma_mask+nucleus_mask); title('SOMA Mask');
-%     subplot(2,4,4); imshow(processes); title('Processes Mask');
-%     subplot(2,4,5); imshow(membrane); title('Membrane Mask');
-%     subplot(2,4,6); imshow(cytoplasm); title('Cytoplasm Mask');
-%     subplot(2,4,7); imshow(whole_cell); title('Whole Cell Mask');
-    
-    
+%     %subplot(3,3,1); imshow(imadjust(imcrop(im_dapi_histone,[x_c-half_w_p,y_c-half_w_p,w_p,w_p]))); title('DAPI Histone');
+%     subplot(2,4,1); imshow(imadjust(imcrop(im_neun,[x_c-half_w_p,y_c-half_w_p,w_p,w_p]))); title('NeuN');
+%     subplot(2,4,2); imshow(imadjust(map2_crop)); title('MAP2');
+%     subplot(2,4,3); imshow(nucleus_mask); title('Nucleus Mask');
+%     subplot(2,4,4); imshow(soma_mask); title('SOMA Mask');
+%     subplot(2,4,5); imshow(processes); title('Processes Mask');
+%     subplot(2,4,6); imshow(membrane); title('Membrane Mask');
+%     subplot(2,4,7); imshow(cytoplasm); title('Cytoplasm Mask');
+%     subplot(2,4,8); imshow(whole_cell); title('Whole Cell Mask');
+%     
 end
-    
+

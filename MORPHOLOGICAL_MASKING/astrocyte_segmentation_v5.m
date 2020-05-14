@@ -77,7 +77,7 @@ function [soma_mask, processes, cytoplasm, membrane, whole_cell] = astrocyte_seg
 
     %region growing
     if gfap_val>s100_val %0.95*s100_val && gfap_val<1.05*s100_val
-        negative=~imbinarize(gfap_crop,1.2*graythresh(gfap_crop));
+        negative=~imbinarize(gfap_crop,1.3*graythresh(gfap_crop));
     else
         negative=~imbinarize(s100_crop,1.2*graythresh(s100_crop));
     end
@@ -111,6 +111,7 @@ function [soma_mask, processes, cytoplasm, membrane, whole_cell] = astrocyte_seg
     end
     
     %These points (x_e,y_e) should not be a part of edge of soma: Refine points
+    % These points should not be till the edge of image crop
     pts_j=[];
     for j=1:length(x_e)
         val=edge_soma(y_e(j),x_e(j));
@@ -157,16 +158,16 @@ function [soma_mask, processes, cytoplasm, membrane, whole_cell] = astrocyte_seg
     whole_cell=imbinarize(soma_plus_nucleus+processes+membrane,0.005);
     
     cytoplasm=imbinarize(whole_cell-nucleus_mask-membrane,0.005);
-    
-%     subplot(3,3,1); imshow(imadjust(imcrop(im_dapi_histone,[x_c-half_w_p,y_c-half_w_p,w_p,w_p]))); title('DAPI Histone');
-    subplot(3,3,2); imshow(imadjust(s100_crop)); title('S100');
-    subplot(3,3,3); imshow(imadjust(gfap_crop)); title('GFAP');
-    subplot(3,3,4); imshow(nucleus_mask); title('Nucleus Mask');
-    subplot(3,3,5); imshow(im2bw(soma_plus_mask_no_process - nucleus_mask,0.005)); title('SOMA Mask');
-    subplot(3,3,6); imshow(processes); title('Processes Mask');
-    subplot(3,3,7); imshow(membrane); title('Membrane Mask');
-    subplot(3,3,8); imshow(cytoplasm); title('Cytoplasm Mask');
-    subplot(3,3,9); imshow(whole_cell); title('Whole Cell Mask');
+%     
+%     %subplot(3,3,1); imshow(imadjust(imcrop(im_dapi_histone,[x_c-half_w_p,y_c-half_w_p,w_p,w_p]))); title('DAPI Histone');
+%     subplot(3,3,2); imshow(imadjust(s100_crop)); title('S100');
+%     subplot(3,3,3); imshow(imadjust(gfap_crop)); title('GFAP');
+%     subplot(3,3,4); imshow(nucleus_mask); title('Nucleus Mask');
+%     subplot(3,3,5); imshow(im2bw(soma_plus_mask_no_process - nucleus_mask,0.005)); title('SOMA Mask');
+%     subplot(3,3,6); imshow(processes); title('Processes Mask');
+%     subplot(3,3,7); imshow(membrane); title('Membrane Mask');
+%     subplot(3,3,8); imshow(cytoplasm); title('Cytoplasm Mask');
+%     subplot(3,3,9); imshow(whole_cell); title('Whole Cell Mask');
     
 %     subplot(2,2,1); imshow(imadjust(imcrop(im_dapi_histone,[x_c-half_w_p,y_c-half_w_p,w_p,w_p])));
 %     subplot(2,2,2); imshow(imadjust(s100_crop));

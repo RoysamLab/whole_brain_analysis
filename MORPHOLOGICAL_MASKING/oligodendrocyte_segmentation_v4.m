@@ -99,14 +99,14 @@ function [soma_mask, processes, cytoplasm, membrane, whole_cell] = oligodendrocy
     cytoplasm=imbinarize(whole_cell-nucleus_mask-membrane,0.005);
     
 %     subplot(3,3,1); imshow(imadjust(imcrop(im_dapi_histone,[x_c-half_w_p,y_c-half_w_p,w_p,w_p]))); title('DAPI Histone');
-    %subplot(3,3,2); imshow(imadjust(imcrop(im_olig2,[x_c-half_w_p,y_c-half_w_p,w_p,w_p]))); title('Olig2');
-    subplot(3,3,3); imshow(imadjust(cnpase_crop)); title('CNPase');
-    subplot(3,3,4); imshow(nucleus_mask); title('Nucleus Mask');
-    subplot(3,3,5); imshow(soma_mask); title('SOMA Mask');
-    subplot(3,3,6); imshow(processes); title('Processes Mask');
-    subplot(3,3,7); imshow(membrane); title('Membrane Mask');
-    subplot(3,3,8); imshow(cytoplasm); title('Cytoplasm Mask');
-    subplot(3,3,9); imshow(whole_cell); title('Whole Cell Mask');
+%     %subplot(3,3,2); imshow(imadjust(imcrop(im_olig2,[x_c-half_w_p,y_c-half_w_p,w_p,w_p]))); title('Olig2');
+%     subplot(3,3,3); imshow(imadjust(cnpase_crop)); title('CNPase');
+%     subplot(3,3,4); imshow(nucleus_mask); title('Nucleus Mask');
+%     subplot(3,3,5); imshow(soma_mask); title('SOMA Mask');
+%     subplot(3,3,6); imshow(processes); title('Processes Mask');
+%     subplot(3,3,7); imshow(membrane); title('Membrane Mask');
+%     subplot(3,3,8); imshow(cytoplasm); title('Cytoplasm Mask');
+%     subplot(3,3,9); imshow(whole_cell); title('Whole Cell Mask');
 %     
 end
 
