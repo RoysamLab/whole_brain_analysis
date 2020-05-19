@@ -1,56 +1,56 @@
-filename,intra channel correction,inter channel correction,channel 1,channel 2,channel 3,xmin,ymin,xmax,ymax
-S1_R1C1.tif,Yes,Yes,,,,2000,4000,15000,13000
-S1_R1C10.tif,Yes,Yes,S1_R1C7.tif,S1_R1C4.tif,S1_R1C6.tif,2000,4000,15000,13000
-S1_R1C11.tif,No,No,,,,2000,4000,15000,13000
-S1_R1C2.tif,Yes,Yes,S1_R1C1.tif,,,19000,18500,21000,19500
-S1_R1C3.tif,Yes,Yes,,,,2000,4000,15000,13000
-S1_R1C4.tif,Yes,Yes,,,,2000,4000,15000,13000
-S1_R1C5.tif,Yes,Yes,,,,2000,4000,15000,13000
-S1_R1C6.tif,Yes,Yes,,,,2000,4000,15000,13000
-S1_R1C7.tif,Yes,Yes,S1_R1C4.tif,,,2000,4000,15000,13000
-S1_R1C8.tif,Yes,Yes,,,,2000,4000,15000,13000
-S1_R1C9.tif,Yes,Yes,S1_R1C7.tif,S1_R1C4.tif,S1_R2C4.tif,2000,4000,15000,13000
-S1_R2C1.tif,Yes,Yes,,,,2000,4000,15000,13000
-S1_R2C10.tif,Yes,Yes,,,,2000,4000,15000,13000
-S1_R2C11.tif,No,No,,,,2000,4000,15000,13000
-S1_R2C2.tif,Yes,Yes,,,,2000,4000,15000,13000
-S1_R2C3.tif,Yes,Yes,S1_R2C6.tif,,,2000,4000,15000,13000
-S1_R2C4.tif,Yes,Yes,,,,2000,4000,15000,13000
-S1_R2C5.tif,Yes,Yes,S1_R2C6.tif,,,2000,4000,15000,13000
-S1_R2C6.tif,Yes,Yes,,,,2000,4000,15000,13000
-S1_R2C7.tif,Yes,Yes,S1_R2C9.tif,S1_R2C4.tif,S1_R2C5.tif,28000,15400,36600,21200
-S1_R2C8.tif,Yes,Yes,,,,2000,4000,15000,13000
-S1_R2C9.tif,Yes,Yes,S1_R2C7.tif,,,2000,4000,15000,13000
-S1_R3C1.tif,Yes,Yes,,,,2000,4000,15000,13000
-S1_R3C10.tif,Yes,Yes,,,,2000,4000,15000,13000
-S1_R3C11.tif,No,No,,,,2000,4000,15000,13000
-S1_R3C2.tif,Yes,Yes,,,,2000,4000,15000,13000
-S1_R3C3.tif,Yes,Yes,,,,2000,4000,15000,13000
-S1_R3C4.tif,Yes,Yes,S1_R2C4.tif,,,2000,4000,15000,13000
-S1_R3C5.tif,Yes,Yes,S1_R3C3.tif,S1_R3C7.tif,,2000,4000,15000,13000
-S1_R3C6.tif,Yes,Yes,S1_R3C5.tif,S1_R2C4.tif,,2000,4000,15000,13000
-S1_R3C7.tif,Yes,Yes,S1_R3C9.tif,S1_R3C5.tif,S1_R3C8.tif,2000,4000,15000,13000
-S1_R3C8.tif,Yes,Yes,S1_R3C3.tif,,,2000,4000,15000,13000
-S1_R3C9.tif,Yes,Yes,S1_R3C7.tif,,,2000,4000,15000,13000
-S1_R4C1.tif,Yes,Yes,,,,2000,4000,15000,13000
-S1_R4C10.tif,Yes,Yes,S1_R4C9.tif,S1_R4C8.tif,S1_R3C10.tif,2000,4000,15000,13000
-S1_R4C11.tif,No,No,,,,2000,4000,15000,13000
-S1_R4C2.tif,Yes,Yes,,,,2000,4000,15000,13000
-S1_R4C3.tif,Yes,Yes,,,,2000,4000,15000,13000
-S1_R4C4.tif,Yes,Yes,S1_R3C7.tif,,,2000,4000,15000,13000
-S1_R4C5.tif,Yes,Yes,S1_R4C7.tif,,,2000,4000,15000,13000
-S1_R4C6.tif,Yes,Yes,S1_R4C5.tif,S1_R4C7.tif,,2000,4000,15000,13000
-S1_R4C7.tif,Yes,Yes,,,,2000,4000,15000,13000
-S1_R4C8.tif,Yes,Yes,,,,2000,4000,15000,13000
-S1_R4C9.tif,Yes,Yes,,,,2000,4000,15000,13000
-S1_R5C1.tif,Yes,Yes,,,,2000,4000,15000,13000
-S1_R5C10.tif,Yes,Yes,S1_R5C9.tif,,,2000,4000,15000,13000
-S1_R5C11.tif,No,No,,,,2000,4000,15000,13000
-S1_R5C2.tif,Yes,Yes,,,,2000,4000,15000,13000
-S1_R5C3.tif,Yes,Yes,S1_R2C3.tif,,,2000,4000,15000,13000
-S1_R5C4.tif,Yes,Yes,S1_R2C4.tif,,,2000,4000,15000,13000
-S1_R5C5.tif,Yes,No,,,,2000,4000,15000,13000
-S1_R5C6.tif,Yes,No,,,,2000,4000,15000,13000
-S1_R5C7.tif,Yes,No,,,,2000,4000,15000,13000
-S1_R5C8.tif,Yes,Yes,S1_R5C4.tif,,,2000,4000,15000,13000
-S1_R5C9.tif,Yes,No,,,,2000,4000,15000,13000
+filename,biomarker,structure,intra channel correction,inter channel correction,channel 1,channel 2,channel 3,xmin,ymin,xmax,ymax
+S1_R1C1.tif,DAPI,Nucleus,Yes,Yes,,,,2000,4000,15000,13000
+S1_R1C10.tif,Cleaved Caspase-3,Cytoplasm,Yes,Yes,S1_R1C7.tif,S1_R1C4.tif,S1_R1C6.tif,2000,4000,15000,13000
+S1_R1C11.tif,Phase Contrast Bright Field,Cell Morphology,No,No,,,,2000,4000,15000,13000
+S1_R1C2.tif,Tyrosine Hydroxylase (TH),"Soma, Processes",Yes,Yes,S1_R1C1.tif,,,19000,18500,21000,19500
+S1_R1C3.tif,Blood Brain Barrier,Plasma Membrane,Yes,Yes,,,,2000,4000,15000,13000
+S1_R1C4.tif,GFP,Cytoplasm,Yes,Yes,,,,2000,4000,15000,13000
+S1_R1C5.tif,Iba1,"Soma, Processes",Yes,Yes,,,,2000,4000,15000,13000
+S1_R1C6.tif,RECA1,Plasma Membrane,Yes,Yes,,,,2000,4000,15000,13000
+S1_R1C7.tif,Aquaporin-4,Plasma Membrane,Yes,Yes,S1_R1C4.tif,,,2000,4000,15000,13000
+S1_R1C8.tif,Tomato Lectin,Plasma Membrane,Yes,Yes,,,,2000,4000,15000,13000
+S1_R1C9.tif,Olig2,Nucleus,Yes,Yes,S1_R1C7.tif,S1_R1C4.tif,S1_R2C4.tif,2000,4000,15000,13000
+S1_R2C1.tif,DAPI,Nucleus,Yes,Yes,,,,2000,4000,15000,13000
+S1_R2C10.tif,Smooth Muscle Actin,"Soma, Processes",Yes,Yes,,,,2000,4000,15000,13000
+S1_R2C11.tif,Phase Contrast Bright Field,Cell Morphology,No,No,,,,2000,4000,15000,13000
+S1_R2C2.tif,Histones,Nucleus,Yes,Yes,,,,2000,4000,15000,13000
+S1_R2C3.tif,PDGFR beta,Plasma Membrane,Yes,Yes,S1_R2C6.tif,,,2000,4000,15000,13000
+S1_R2C4.tif,NeuN,Nucleus,Yes,Yes,,,,2000,4000,15000,13000
+S1_R2C5.tif,Synaptohysin,Synapses,Yes,Yes,S1_R2C6.tif,,,2000,4000,15000,13000
+S1_R2C6.tif,Parvalbumin,"Soma, Processes",Yes,Yes,,,,2000,4000,15000,13000
+S1_R2C7.tif,Choline Acetyltransferase,"Soma, Processes",Yes,Yes,S1_R2C9.tif,S1_R2C4.tif,S1_R2C5.tif,28000,15400,36600,21200
+S1_R2C8.tif,Tomato Lectin,Plasma Membrane,Yes,Yes,,,,2000,4000,15000,13000
+S1_R2C9.tif,Glutaminase,"Soma, Processes",Yes,Yes,S1_R2C7.tif,,,2000,4000,15000,13000
+S1_R3C1.tif,DAPI,Nucleus,Yes,Yes,,,,2000,4000,15000,13000
+S1_R3C10.tif,Vimentin,Processes,Yes,Yes,,,,2000,4000,15000,13000
+S1_R3C11.tif,Phase Contrast Bright Field,Cell Morphology,No,No,,,,2000,4000,15000,13000
+S1_R3C2.tif,Histones,Nucleus,Yes,Yes,,,,2000,4000,15000,13000
+S1_R3C3.tif,GFAP,Processes,Yes,Yes,,,,2000,4000,15000,13000
+S1_R3C4.tif,Doublecortin,"Soma, Processes",Yes,Yes,S1_R2C4.tif,,,2000,4000,15000,13000
+S1_R3C5.tif,S100,"Soma, Processes",Yes,Yes,S1_R3C3.tif,S1_R3C7.tif,,2000,4000,15000,13000
+S1_R3C6.tif,Nestin,Processes,Yes,Yes,S1_R3C5.tif,S1_R2C4.tif,,2000,4000,15000,13000
+S1_R3C7.tif,Aquaporin-4,Plasma Membrane,Yes,Yes,S1_R3C9.tif,S1_R3C5.tif,S1_R3C8.tif,2000,4000,15000,13000
+S1_R3C8.tif,Tomato Lectin,Plasma Membrane,Yes,Yes,S1_R3C3.tif,,,2000,4000,15000,13000
+S1_R3C9.tif,GLAST,Plasma Membrane,Yes,Yes,S1_R3C7.tif,,,2000,4000,15000,13000
+S1_R4C1.tif,DAPI,Nucleus,Yes,Yes,,,,2000,4000,15000,13000
+S1_R4C10.tif,Eomes,Nucleus,Yes,Yes,S1_R4C9.tif,S1_R4C8.tif,S1_R3C10.tif,2000,4000,15000,13000
+S1_R4C11.tif,Phase Contrast Bright Field,Cell Morphology,No,No,,,,2000,4000,15000,13000
+S1_R4C2.tif,Histones,Nucleus,Yes,Yes,,,,2000,4000,15000,13000
+S1_R4C3.tif,Autofluorescence,N/A,Yes,Yes,,,,2000,4000,15000,13000
+S1_R4C4.tif,PCNA,Nucleus,Yes,Yes,S1_R3C7.tif,,,2000,4000,15000,13000
+S1_R4C5.tif,Sox2,Nucleus,Yes,Yes,S1_R4C7.tif,,,2000,4000,15000,13000
+S1_R4C6.tif,GAD67,"Soma, Processes",Yes,Yes,S1_R4C5.tif,S1_R4C7.tif,,2000,4000,15000,13000
+S1_R4C7.tif,Autofluorescence,N/A,Yes,Yes,,,,2000,4000,15000,13000
+S1_R4C8.tif,Tomato Lectin,Plasma Membrane,Yes,Yes,,,,2000,4000,15000,13000
+S1_R4C9.tif,Tbr1,Nucleus,Yes,Yes,,,,2000,4000,15000,13000
+S1_R5C1.tif,DAPI,Nucleus,Yes,Yes,,,,2000,4000,15000,13000
+S1_R5C10.tif,Calbindin,"Soma, Processes",Yes,Yes,S1_R5C9.tif,,,2000,4000,15000,13000
+S1_R5C11.tif,Phase Contrast Bright Field,Cell Morphology,No,No,,,,2000,4000,15000,13000
+S1_R5C2.tif,Histones,Nucleus,Yes,Yes,,,,2000,4000,15000,13000
+S1_R5C3.tif,Calretinin,"Soma, Processes",Yes,Yes,S1_R2C3.tif,,,2000,4000,15000,13000
+S1_R5C4.tif,CNPase,"Soma, Processes",Yes,Yes,S1_R2C4.tif,,,2000,4000,15000,13000
+S1_R5C5.tif,Neurofilament-H,Processes,Yes,No,,,,2000,4000,15000,13000
+S1_R5C6.tif,Myelin Basic Protein,Processes,Yes,No,,,,2000,4000,15000,13000
+S1_R5C7.tif,Neurofilament-M,Processes,Yes,No,,,,2000,4000,15000,13000
+S1_R5C8.tif,Tomato Lectin,Plasma Membrane,Yes,Yes,S1_R5C4.tif,,,2000,4000,15000,13000
+S1_R5C9.tif,MAP2,"Soma, Processes",Yes,No,,,,2000,4000,15000,13000
