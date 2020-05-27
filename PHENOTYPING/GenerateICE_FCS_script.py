@@ -6,7 +6,7 @@ Input:
     [maskType] :  input mask type options   
             Opt1 detection bouding box:  "b"/"bbox"
             Opt2 segmentation mask: "m"/"mask"
-    [maskDir]: mask directory
+    [nuclearMaskDir]: mask directory
             Opt1 bbox: *.txt
                 header contains: ['ID', 'centroid_x', 'centroid_y', 'xmin', 'ymin', 'xmax', 'ymax']
             Opt2 mask: .out /.txt
@@ -54,7 +54,7 @@ e.g.
         --INPUT_DIR="$data_dir"/cell_type_images \
         --OUTPUT_DIR="$output_dir" \
         --maskType=b \
-        --maskDir="$data_dir"/detection_results/bbxs_detection.txt \
+        --nuclearMaskDir="$data_dir"/detection_results/bbxs_detection.txt \
         --downscaleRate=4 \
         --seedSize=2 \
         --erosion_px=5 \
@@ -65,7 +65,7 @@ e.g.
         --INPUT_DIR="/project/roysam/datasets/TBI/G2_Sham_Trained/G2_BR#22_HC_13L/final" \
         --OUTPUT_DIR=/project/roysam/datasets/TBI/G2_Sham_Trained/G2_BR#22_HC_13L/ICE \
         --maskType="b" \
-        --maskDir=/project/roysam/datasets/TBI/G2_Sham_Trained/G2_BR#22_HC_13L/detection_results/bbxs_detection.txt \
+        --nuclearMaskDir=/project/roysam/datasets/TBI/G2_Sham_Trained/G2_BR#22_HC_13L/detection_results/bbxs_detection.txt \
         --CHNDEF="/project/roysam/datasets/TBI/20_plex.csv" \
         --downscaleRate=4 \
         --seedSize=2 \
@@ -75,7 +75,7 @@ e.g.
     python GenerateICE_FCS_script.py \
         --INPUT_DIR=/data/xiaoyang/CHN50 \
         --maskType=mask \
-        --maskDir=$data_dir \
+        --nuclearMaskDir=$data_dir \
         --OUTPUT_DIR=/data/xiaoyang/CHN50/mrcnn_seg_data/ICE_FCS_files \
         --downscaleRate=4 \
         --seedSize=3\
@@ -95,7 +95,7 @@ import skimage
 import struct
 import pandas as pd
 import numpy as np
-from skimage import io,transform,morphology,exposure
+from skimage import io,transform,morphology,exposure,segmentation
 from PIL import Image as Img
 import warnings
 import h5py
@@ -114,10 +114,10 @@ parser.add_argument('--INPUT_DIR', required=False,
                     metavar = "/path/to/dataset/",
                     default = "/data/xiaoyang/10_plex_stroke_rat/",
                     help='Directory of inputs, default = "/data/xiaoyang/10_plex_stroke_rat/"')                
-parser.add_argument('--maskType', required= False,                        
-                    default = "b",
+parser.add_argument('--maskType', required= True,                        
+                    default = "b",  
                     help='Mask type: "b"/"bbox","m"/"mask", default = "bbox" ')                
-parser.add_argument('--maskDir', required= False,
+parser.add_argument('--nuclearMaskDir', required= True,
                     default = '/data/xiaoyang/10_plex_stroke_rat/detection_results/bbxs_detection.txt',
                     help='Full Path name of mask.out/bbox.txt, default = "/data/xiaoyang/10_plex_stroke_rat/detection_results/bbxs_detection.txt" ')
 parser.add_argument('--OUTPUT_DIR', required= False,
@@ -144,14 +144,16 @@ parser.add_argument('--erosion_px', required= False,
                     type = int,
                     default = 0,
                     help= 'integer of pixel to shink the bbox ')
-parser.add_argument('--wholeCellDir', required= False,
-                    metavar = "/path/to/maskfile/",
-                    default = '/data/xiaoyang/10_plex_stroke_rat/',
-                    help='Root directory of whole cell body segmentation')   
+                                     
 parser.add_argument('--imadjust', required=False,
                     default = "T",type = str, 
                     help='whether to adjust the image, ')         
 
+# whole cell body reconstruction
+parser.add_argument('--wholeCellDir', required= False,
+                    metavar = "/path/to/maskfile/",
+                    default = '/data/xiaoyang/10_plex_stroke_rat/',
+                    help='Root directory of whole cell body segmentation')   
 args = parser.parse_args()
 
 
@@ -176,13 +178,13 @@ def extractFileNamesforType(dir_loc, fileExt):   # dir , '.tif'
     return fileNames
 
 def save_mask2bin (maskBinName, label_img, transpose = True):
-    tiff.imsave(maskBinName.split(".bin")[0] + ".tif", label_img )
+    tiff.imsave(maskBinName.split(".bin")[0] + ".tif", label_img )                              # save the tiff version of bin file
+    
     label_img_vec = np.array(label_img, dtype = np.int32)
     if transpose:
         label_img_vec = np.reshape( label_img_vec.T ,label_img_vec.size)               
     else:
         label_img_vec = np.reshape( label_img_vec ,label_img_vec.size)                  
-
     fout_mask = open(maskBinName,'wb')    
     label_img_vec.tofile(fout_mask)                       
     fout_mask.close()
@@ -251,10 +253,8 @@ def Write_FeatureTable (Read_img_file_Loc, maskfileName, Write_img_file_Loc = No
             FileName = SubElement(Image, 'FileName')
             FileName.set("CHNName", DatesetDef_csv["CHNName"][i])
             FileName.text = DatesetDef_csv["filename"][i]
-        # 
 
     datasetName = os.path.basename(CHNDEF).split('.')[0]  # storage the name to extract dataset name 
-    # image_temp = tiff.imread( os.path.join( Read_img_file_Loc, imreadName) )                      # 16bit
     with tiff.TiffFile(os.path.join( Read_img_file_Loc, imreadName)) as tif:
         image_temp = tif.asarray(memmap=True)
     print ("    ''' read xml done'''")
@@ -264,9 +264,7 @@ def Write_FeatureTable (Read_img_file_Loc, maskfileName, Write_img_file_Loc = No
     image_shape = image_temp.shape
     
     print ("    ''' downscale'''")    
-
     image_downscaled_temp = transform.pyramid_reduce(image_temp, downscale=display_downscaleRate) if display_downscaleRate > 1 else image_temp
-    # print ("image_downscaled.shape =",image_downscaled.shape )         
     downscales_shape = image_downscaled_temp.shape        
     print ( "image.shape  = ", image_shape)
     print ( "downscales_shape.shape  = ", downscales_shape)
@@ -280,7 +278,8 @@ def Write_FeatureTable (Read_img_file_Loc, maskfileName, Write_img_file_Loc = No
             NumOfObj     = Bbox_txt.shape[0]
             assert len(Bbox_headers)== Bbox_txt.shape[1]    
             bbox_table      = {}
-            for i, Bbox_header in enumerate( Bbox_headers):                                             
+            for i, Bbox_header in enumerate( Bbox_headers):    
+                # Storage ['ID', 'centroid_x', 'centroid_y' ,'xmin', 'ymin', 'xmax', 'ymax''] into bbox                                                                   
                 bbox_table[Bbox_header] = np.array(Bbox_txt[:,i],dtype= int)
 
         elif ('.csv' in maskfileName):                          # csv file
@@ -336,31 +335,16 @@ def Write_FeatureTable (Read_img_file_Loc, maskfileName, Write_img_file_Loc = No
 
             ############ save the mask_bin_downscales ################
             label_image_downscaled = label_image_downscaled if mirror_y == False else np.flipud(label_image_downscaled)
-            # adjust 
-            # label_image_downscaled = np.transpose(label_image_downscaled)
-
-            # maskBinName = os.path.join (Write_img_file_Loc , '[DAPI]nucleus_Mask_downscaled_' + str(display_downscaleRate) + '.bin' )
             maskBinName = os.path.join (Write_img_file_Loc , '[DAPI]Seeds_Mask.bin' )    
-            # import pdb; pdb.set_trace()
-            # tiff.imsave(maskBinName.split(".bin")[0] + ".tif",label_image_downscaled )
 
             hf = h5py.File(os.path.join(Write_img_file_Loc,"label_image_downscaled.h5"), 'w')
             hf.create_dataset('seg_results', data=label_image_downscaled)
             hf.close()
 
-            # fout_mask = open(maskBinName,'wb')               
-            # label_image_downscaled_vec = np.array(label_image_downscaled, dtype = np.int32)
-            # label_image_downscaled_vec = np.reshape( label_image_downscaled_vec.T ,label_image_downscaled_vec.size)       
-            # # label_image_downscaled_vec = np.reshape( label_image_downscaled_vec ,label_image_downscaled_vec.size)                  
-            # label_image_downscaled_vec.tofile(fout_mask)                       
-            # fout_mask.close()
-
             save_mask2bin (maskBinName , label_image_downscaled, transpose = False)   
-
             
-    elif ('.out' in maskfileName) or ('.txt' in maskfileName)and ('m' in MaskType): # Use mask as input
-        if display_downscaleRate == 1 :      
-            # save whole cell reconstruction             
+    elif ('m' in MaskType): # Use mask as input
+        if display_downscaleRate == 1 :            # save whole cell reconstruction             
             print ("wholeCellDir =============", wholeCellDir)
             if wholeCellDir is not None:    # make sure the label is the same the the seeds
                 for fName in os.listdir (wholeCellDir) :
@@ -371,33 +355,43 @@ def Write_FeatureTable (Read_img_file_Loc, maskfileName, Write_img_file_Loc = No
                         maskBinName = os.path.join (Write_img_file_Loc , key +  '_Mask.bin' )
                         save_mask2bin (maskBinName , label_image_wholecell)   
 
-        label_image = np.loadtxt( maskfileName, delimiter = ',' ,dtype = int )
-        maskBinName = os.path.join (Write_img_file_Loc , 'Nucleus_Mask.bin' )
-        save_mask2bin (maskBinName , label_image)
+        if ('.out' in maskfileName) or ('.txt' in maskfileName):  # load nuclear mask
+            label_image = np.loadtxt( maskfileName, delimiter = ',' ,dtype = int )
 
-        print ("NumOf non zeors = ", len(np.unique(label_image)))
-        print ("len(skimage.measure.regionprops (label_image)) ", len(skimage.measure.regionprops (label_image)))
-        NumOfObj = len(np.unique(label_image))          
-        # print ("Max index  = ", NumOfObj)     
+        elif  ('.h5' in maskfileName) : #load whole cell image 
+            hf = h5py.File(maskfileName,'r')
+            label_image = np.array(hf.get('mask')).astype(np.uint)              
+            hf.close()
+
+        '''  Generate AssociateFtable'''
+        # maskBinName = os.path.join (Write_img_file_Loc , '[DAPI]Segmentation_Mask.bin' )
+        # save_mask2bin (maskBinName , label_image)
+            
+        obj_props = skimage.measure.regionprops (label_image)
+        NumOfObj = len(obj_props)        
+        print ("NumOfObj=", NumOfObj, "range :",label_image.max())
         ID_ls = np.zeros (NumOfObj).astype("int")      
         centroid_x_ls = np.zeros (NumOfObj)    
         centroid_y_ls = np.zeros (NumOfObj)    
-
-        for i, obj in enumerate( skimage.measure.regionprops (label_image) ) :
+        for i, obj in enumerate( obj_props ) :
             ID_ls[i]= obj.label 
             centroid_x_ls[i] = int( obj.centroid[0]  )
             centroid_y_ls[i] = int( obj.centroid[1]  )  
-        
-        Featuretable = pd.DataFrame({ 'ID' : ID_ls,
+
+        ICE_id_ls, __, __ = segmentation.relabel_sequential(ID_ls)             # reorder the masks_ids
+
+        Featuretable = pd.DataFrame({ 'ID' : ID_ls,                         # absolute ID
                                       'centroid_x': centroid_x_ls,
                                       'centroid_y': centroid_y_ls,
+                                      'ICE_id' : ICE_id_ls
                                     })
         Featuretable = Featuretable.set_index('ID')
 
         # Associative feature table for further analaysis, e.g. cell type training     
-        AssociativeFtable = pd.DataFrame({   'ID'        : ID_ls,
+        AssociativeFtable = pd.DataFrame({  'ID'        : ID_ls,
                                             'centroid_x': centroid_x_ls,
                                             'centroid_y': centroid_y_ls,
+                                            'ICE_id' : ICE_id_ls
                                     })
         AssociativeFtable = AssociativeFtable.set_index('ID')
 
@@ -407,19 +401,26 @@ def Write_FeatureTable (Read_img_file_Loc, maskfileName, Write_img_file_Loc = No
 
         # Create downscaled label_image only with centroids
         label_image_downscaled = np.zeros(downscales_shape)    
+        for i, obj in enumerate( obj_props ) :
+            # ID_ls[i]= obj.label                 
+            x = int ( obj.centroid[0] / display_downscaleRate )
+            y = int ( obj.centroid[1] / display_downscaleRate ) if mirror_y == False \
+                else ( int ( image_shape[1] /display_downscaleRate )- int ( obj.centroid[1] / display_downscaleRate )  ) # Might need to  flip over the crop 
+            centroid_x_downscaled_ls[i] = x
+            centroid_y_downscaled_ls[i] = y                                 
+            # label_image_downscaled[ x, y] = obj.label                                  # disks of seeds are label as their id (1,2,3....)
+            label_image_downscaled[ x, y] = ICE_id_ls[i]                                  # disks of seeds are label as their id (1,2,3....)
 
-        for i, obj in enumerate( skimage.measure.regionprops (label_image) ) :
-            ID_ls[i]= obj.label                 
-            centroid_x_downscaled_ls[i] = int ( obj.centroid[0] / display_downscaleRate )
-            centroid_y_downscaled_ls[i] = int ( obj.centroid[1] / display_downscaleRate ) if mirror_y == False \
-                                    else ( int ( image_shape[0] /display_downscaleRate )- int ( obj.centroid[1] / display_downscaleRate )  )                            # Might need to  flip over the crop        
-            label_image_downscaled[ centroid_x_downscaled_ls[i],
-                                    centroid_y_downscaled_ls[i]] = ID_ls[i]                                  # disks of seeds are label as their id (1,2,3....)
         # generate  label_image_downscaled
         if seedSize > 1: 
             diskR = seedSize
             label_image_downscaled = morphology.dilation (label_image_downscaled,morphology.disk(diskR))    # sure forground (marked) is from blobs with same radius
-        
+        # save the mask_bin_downscales
+        maskBinName = os.path.join (Write_img_file_Loc , 'Seeds_Mask.bin' )              # [DAPI]Seeds_Mask.bin
+        save_mask2bin (maskBinName , label_image_downscaled, transpose = False)           
+        print ("downscaled NumOfObj=", len( np.unique(label_image_downscaled))-1, "range :",label_image_downscaled.max())
+        # import pdb; pdb.set_trace()
+
         # record seed coords
         if display_downscaleRate != 1 :      
             Featuretable['centroid_x_ds'] = centroid_x_downscaled_ls 
@@ -431,12 +432,8 @@ def Write_FeatureTable (Read_img_file_Loc, maskfileName, Write_img_file_Loc = No
         # for mask, we need to mirror x rather than y
         Featuretable['centroid_x'] = centroid_x_ls        
         Featuretable['centroid_y'] = centroid_y_ls if mirror_y == False \
-                                        else ( image_shape[0] - centroid_y_ls )                                # Might need to  flip over the crop 
-        print ("Featuretable['centroid_y'] " ,   Featuretable['centroid_y'].max(), Featuretable['centroid_y'].min() )
-        # save the mask_bin_downscales
-        maskBinName = os.path.join (Write_img_file_Loc , '[DAPI]Seeds_Mask.bin' )            
-        save_mask2bin (maskBinName , label_image_downscaled)
-        
+                                        else ( image_shape[1] - centroid_y_ls )                                # Might need to  flip over the crop 
+        print ("Featuretable['centroid_y'] range:" ,   Featuretable['centroid_y'].min(), Featuretable['centroid_y'].max() )
     else:
         raise ValueError("[Error!] Fails to load bbox /mask files")
 
@@ -451,7 +448,6 @@ def Write_FeatureTable (Read_img_file_Loc, maskfileName, Write_img_file_Loc = No
             print ("Loading Channel : ", biomarker )            
             imreadName = Image.find('FileName').text
             print ("imreadName = ",os.path.join( Read_img_file_Loc, imreadName))
-            # image = tiff.imread( os.path.join( Read_img_file_Loc, imreadName) )                       # 16bit
             with tiff.TiffFile(os.path.join( Read_img_file_Loc, imreadName)) as tif:
                 image = tif.asarray(memmap=False)            
             # saveImageName = Image.get('Celltype') + "_" + 
@@ -477,9 +473,6 @@ def Write_FeatureTable (Read_img_file_Loc, maskfileName, Write_img_file_Loc = No
                     print (" Save downscaled Images! " )
 
             ''' Storage Intrinsic features '''
-            # Avg_intensity_ls = np.zeros(NumOfObj )
-            # Tol_intensity_ls = np.zeros(NumOfObj )
-            # print ("Intensity Image shape = ", image.shape)
             Avg_intensity_ls = []
             if MaskType == 'bbox':
                 print ("Computing biomarker Avg and Sum")
@@ -565,10 +558,6 @@ def GenerateICE(datasetName, output_folder, featureTable_FName = None,FeatureTab
     
     ###################################  Read input files ###########################
     ''' Load Dataset definition'''
-
-    #ParentLoc = os.path.dirname(os.getcwd())
-    #input_folder = os.getcwd() +'\\' + 'ICE_Result\\'
-    # allFileNames = os.listdir(input_folder)                                                    #list all files from the input Directory
     actualImageNames = []
     maskImageNames = []
 
@@ -660,7 +649,7 @@ def GenerateICE(datasetName, output_folder, featureTable_FName = None,FeatureTab
         CompositeImages = SubElement(Dataset, 'CompositeImages')
         CompositeImages.append(Comment('Association with channels definition'))
         
-        ImageIDs_others = []
+        # ImageIDs_others = []
         Biomakers_others = []
 
         # only read the size once , because all channels have same sized
@@ -674,11 +663,6 @@ def GenerateICE(datasetName, output_folder, featureTable_FName = None,FeatureTab
             Image = SubElement(CompositeImages,'Image')
             ID = SubElement(Image,'ID')
             ID.text = 'Img_00' + str(ImgID)                                                     # only keep the name part before extention as the ID 
-            # with tiff.TiffFile(os.path.join( output_folder , actualImageName)) as tif:
-            #     actualImg = tif.asarray(memmap=True)      
-            # # import pdb; pdb.set_trace()
-            # actualImg_shape = [actualImg.shape[1],actualImg.shape[0]]
-            # actualImg = tiff.imread(os.path.join( output_folder , actualImageName)  )                               # Read Image
             URL = SubElement(Image,'URL')
             URL.set('url','file://'+ actualImageName)                                           # get the file Name of Image    
             Width = SubElement(Image,'Width')
@@ -688,16 +672,16 @@ def GenerateICE(datasetName, output_folder, featureTable_FName = None,FeatureTab
             
             biomarkerName = actualImageName.split('_')[0]                                       # prepare for InfoCompositeImage
             Image.set('biomarker',biomarkerName) 
-            if biomarkerName == '[DAPI]':                                              
-                ImageID_DAPI = ID.text
-            else:
-                ImageIDs_others.append( ID.text )                                               # for use later in InfoCompositeImage
+            # if biomarkerName == '[DAPI]':                                              
+            #     ImageID_DAPI = ID.text
+            # else:
+            #     ImageIDs_others.append( ID.text )                                               # for use later in InfoCompositeImage
 
         ##   Masks    [read the mask image .bin external file]
         Masks = SubElement(Dataset, 'Masks')
         Masks.append(Comment('Association with segmentation and feature value definition'))    
         
-        MaskIDs_Nucleus =[]
+        MaskIDs_seeds =[]
         MaskIDs_others =[]
         for MaskID , maskImgName in enumerate(maskImageNames):
             #individual Mask images
@@ -718,8 +702,8 @@ def GenerateICE(datasetName, output_folder, featureTable_FName = None,FeatureTab
             # biomarkerName = maskImgName.split(']')[0] +']'                                    # prepare for InfoCompositeImage
         #    Mask.set('biomarker',actualImageName.split('_')[0]) 
             if "Seeds" in maskImgName :                                                         # nuclues Mask, generate for all channels
-                MaskIDs_Nucleus.append(ID.text)
-                # print ("MaskIDs_Nucleus:", MaskIDs_Nucleus)
+                MaskIDs_seeds.append(ID.text)
+                # print ("MaskIDs_seeds:", MaskIDs_seeds)
             else:                                                                               # morphological Mask  # might us in the future        generate for all other channels
                 MaskIDs_others.append(ID.text)
                 # print ("MaskIDs_others:", MaskIDs_others)
@@ -736,14 +720,14 @@ def GenerateICE(datasetName, output_folder, featureTable_FName = None,FeatureTab
             for Mask in  Masks.findall('Mask'):                                                 # for each mask   (find previous definition)
                 MaskID = Mask.find('ID').text      
                 
-                if MaskID in MaskIDs_Nucleus:                                                   # generate(nucleus_Mask, wholeCell_Mask and cytoplasm_Mask) for all channels
-                    MaskID_Nucleus = MaskID
+                if MaskID in MaskIDs_seeds:                                                   # generate(nucleus_Mask, wholeCell_Mask and cytoplasm_Mask) for all channels
+                    MaskID_seeds = MaskID
                     
                     FeatureDefinition = SubElement(FeatureDefinitions, 'FeatureDefinition')       
                     InfoCompositeImage = SubElement(FeatureDefinition, 'InfoCompositeImage')     # will define  later after we read Image and masks
                     Description = SubElement(InfoCompositeImage, 'Description')
-                    MaskDescription_Nucleus = Mask.find('URL').text.split('.bin')[0].split("]")[1]   # get mask type  from file name ,e.g."nuclues_Mask"
-                    # Description.text = ImgBiomaker + ' with ' + MaskDescription_Nucleus        # [Channel] in mask
+                    # MaskDescription_seeds = Mask.find('URL').text.split('.bin')[0].split("]")[1]   # get mask type  from file name ,e.g."nuclues_Mask"
+                    # Description.text = ImgBiomaker + ' with ' + MaskDescription_seeds        # [Channel] in mask
                     Description.text = ImgBiomaker # [Channel] in mask
                     
                     ID = SubElement(InfoCompositeImage, 'ID')
@@ -754,21 +738,21 @@ def GenerateICE(datasetName, output_folder, featureTable_FName = None,FeatureTab
                     ImageID = SubElement(InfoCompositeImage, 'ImageID')                          # will define later after we read Image
                     ImageID.text = ImgID
                     
-                    MaskID = SubElement(InfoCompositeImage, 'MaskID')                            # will define later after we read mask
-                    MaskID.text = MaskID_Nucleus                                                 # biomarker (channel Name)   '[]'
+                    MaskID = SubElement(InfoCompositeImage, 'MaskID')                            #cal_avg_intensity            # will define later after we read mask
+                    MaskID.text = MaskID_seeds                                                 # biomarker (channel Name)   '[]'
                 
                 elif MaskID in MaskIDs_others:                                                   # assciate its morphological Mask
                     MaskBiomaker =  Mask.find('URL').text.split('[')[1] + '['                    # get channel name from file name ,e.g."[S100]"
                     MaskBiomaker = MaskBiomaker.split(']')[0] + ']'
                     if MaskBiomaker == ImgBiomaker:                                              # only associate the morphology mask with the corresponding channel
                         MaskID_other =  MaskID
-                        FeatureDefinition = SubElement(FeatureDefinitions, 'FeatureDefinition')       
+                        FeatureDefinition = SubElement(FeatureDefinition, 'FeatureDefinition')       
                         InfoCompositeImage = SubElement(FeatureDefinition, 'InfoCompositeImage') # will define  later after we read Image and masks
                         Description = SubElement(InfoCompositeImage, 'Description')
                         
-                        MaskDescription_Nucleus = Mask.find('URL').text.split(']')[1] 
-                        MaskDescription_Nucleus = MaskDescription_Nucleus.split('.bin')[0]       # get mask type  from file name ,e.g."morpholgoical_Mask"
-                        Description.text = ImgBiomaker + ' with ' + MaskDescription_Nucleus      # [Channel] in mask
+                        MaskDescription_seeds = Mask.find('URL').text.split(']')[1] 
+                        MaskDescription_seeds = MaskDescription_seeds.split('.bin')[0]       # get mask type  from file name ,e.g."morpholgoical_Mask"
+                        Description.text = ImgBiomaker + ' with ' + MaskDescription_seeds      # [Channel] in mask
                         
                         ID = SubElement(InfoCompositeImage, 'ID')
                         ID.text = 'F0_COMP_'+ str(COMP_ID)                                       #create the compond image ID
@@ -807,6 +791,8 @@ def GenerateFCS(csv_filename, fcs_filename = None):
     ''' Function of CSV to FCS credit to Jahandar '''
     df = pd.read_csv(csv_filename)
     df = df.dropna(axis=1)
+    
+
     ids = df[['ID']]
     centers = df[['centroid_x', 'centroid_y']]
     phenotypes = df.drop(['ID', 'centroid_x', 'centroid_y'], axis = 1)                          # Drop columns
@@ -835,9 +821,9 @@ if __name__== "__main__":
     else:
         DatesetDef_path =  args.CHNDEF
 
-    print ("** args.maskDir = ", args.maskDir)
+    print ("** args.nuclearMaskDir = ", args.nuclearMaskDir)
     featureTable_FName, AssociativeFtable_FName = Write_FeatureTable ( Read_img_file_Loc       = args.INPUT_DIR , 
-                                                    maskfileName            = args.maskDir  ,
+                                                    maskfileName            = args.nuclearMaskDir  ,
                                                     Write_img_file_Loc      = args.OUTPUT_DIR,
                                                     MaskType                = mask_type,
                                                     display_downscaleRate   = args.downscaleRate,
@@ -853,7 +839,7 @@ if __name__== "__main__":
 
     Write_FeatureTable2bin(featureTable_FName)
     
-    # only featuretable, no superimpose
+    # only featuretable, no mask superimposing
     # ice_filename1 = GenerateICE(input_folder = args.INPUT_DIR, output_folder = args.OUTPUT_DIR,  
     #                             featureTable_FName = featureTable_FName ,  FeatureTableOnly = True)
 
@@ -862,7 +848,7 @@ if __name__== "__main__":
                                 featureTable_FName = featureTable_FName ,  FeatureTableOnly = False)   
     print ("ICE has written in ", ice_filename2)
 
-    GenerateFCS(csv_filename = featureTable_FName)
+    # GenerateFCS(csv_filename = featureTable_FName)
 
     toc = time.time ()
     print ("Total Time(h) : ", (toc-tic)/3600)
