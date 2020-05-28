@@ -296,11 +296,8 @@ class BaseModel(object):
                 f.create_dataset('y_pred', data=y_pred)
                 f.create_dataset('y_prob', data=y_prob)
 
-            # # generate histograms
-            # self.data_reader.plot_hists(y_prob)
-
-            # set threshold of 0.5 for each class to threshold probabilites
-            thresh = np.ones(self.conf.num_cls) * .5
+            # generate histograms
+            self.data_reader.plot_hists(y_prob)
 
         # if it is not the first time for inference, load probabilities from y.h5 and adjust the thresholds
         elif self.conf.test_mode == 'adjust':
@@ -308,8 +305,8 @@ class BaseModel(object):
                 y_prob = f['y_prob'][:]
                 y_pred = f['y_pred'][:]
 
-            # read thresholds from user
-            thresh = self.conf.thresholds
+        # read thresholds (default is 0.5 for each class)
+        thresh = self.conf.thresholds
 
         # create negative samples
         # TODO: fix for any number of class
