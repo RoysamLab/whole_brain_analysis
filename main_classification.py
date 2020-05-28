@@ -9,12 +9,16 @@ import tensorflow as tf
 import warnings
 warnings.filterwarnings('ignore', category=FutureWarning)
 
+from requests.packages.urllib3.exceptions import InsecureRequestWarning
+requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
+
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--INPUT_DIR', type=str, help='/path/to/input/dir')
     parser.add_argument('--OUTPUT_DIR', type=str, help='/path/to/output/dir')
     parser.add_argument('--BBXS_FILE', type=str, help='/path/to/bbxs_detection.txt')
+    parser.add_argument('--test_mode', type=str, default='first', help='first | adjust -> generate or use y.h5 for inference')
     parser.add_argument('--DAPI', type=str, default='', help='<dapi.tif> | None')
     parser.add_argument('--HISTONES', type=str, default='', help='<histones.tif> | None')
     parser.add_argument('--NEUN', type=str, default='', help='<NeuN.tif> | None')
@@ -22,10 +26,7 @@ if __name__ == "__main__":
     parser.add_argument('--OLIG2', type=str, default='', help='<Olig2.tif> | None')
     parser.add_argument('--IBA1', type=str, default='', help='<Iba1.tif> | None')
     parser.add_argument('--RECA1', type=str, default='', help='<RECA1.tif> | None')
-
-    parser.add_argument('--test_mode', type=str, default='first', help='first | adjust -> generate or use y.h5 for inference')
-    parser.add_argument('--thresholds', type=float, nargs='+', default=[.5, .5, .5, .5, .5],
-                        help='[NeuN_thres, S100_thresh, Olig2_thresh, Iba1_thresh, RECA1_thresh] for adjust test_mode')
+    parser.add_argument('--thresholds', type=float, nargs='+', default=[.5, .5, .5, .5, .5], help='[NeuN_thres, S100_thresh, Olig2_thresh, Iba1_thresh, RECA1_thresh]')
 
     args = parser.parse_known_args()[0]
 
@@ -52,12 +53,12 @@ if __name__ == "__main__":
 
         session = requests.Session()
 
-        response = session.get(URL, params={'id': id}, stream=True)
+        response = session.get(URL, params={'id': id}, stream=True, verify=False)
         token = get_confirm_token(response)
 
         if token:
             params = {'id': id, 'confirm': token}
-            response = session.get(URL, params=params, stream=True)
+            response = session.get(URL, params=params, stream=True, verify=False)
 
         save_response_content(response, os.path.join(destination, 'model.zip'))
 
@@ -66,7 +67,7 @@ if __name__ == "__main__":
         os.remove(os.path.join(destination, 'model.zip'))
 
     file_id = '13NzdlcbGowMQt_hWSpzZwU5QZCbQypc0'
-    target_dir = 'CLASSIFICATION/Results/model_dir'
+    target_dir = os.path.join(os.getcwd(), 'Results', 'model_dir')
     if not os.path.exists(target_dir):
         os.makedirs(target_dir)
         download_and_extract_models(file_id, target_dir)
