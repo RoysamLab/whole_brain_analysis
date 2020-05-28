@@ -86,11 +86,14 @@ class BrainLoader(object):
         self.std = np.std(x_train, axis=0)
 
     def plot_hists(self, y_prob):
+        fig, ax = plt.subplots(y_prob.shape[1], figsize=(8, 8))
+        plt.subplots_adjust(hspace=1)
         for i in range(y_prob.shape[1]):
-            plt.figure()
-            plt.hist(y_prob[:, i], bins=500)
-            plt.title(self.biomarkers[i + 2])
-        plt.show()
+            ax[i].hist(y_prob[:, i], bins=10000, color='k')
+            ax[i].set_title(self.biomarkers[i + 2])
+            ax[i].xaxis.set_major_locator(plt.MultipleLocator(0.1))
+            ax[i].xaxis.set_minor_locator(plt.MultipleLocator(0.05))
+        plt.savefig(os.path.join(self.cfg.OUTPUT_DIR, 'histograms.png'), dpi=1000)
 
     def generate_center_images(self, y_pred):
         centers = self.bbxs[['centroid_x', 'centroid_y']].values
