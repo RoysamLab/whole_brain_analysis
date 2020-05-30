@@ -18,6 +18,7 @@ cmds = ['source activate brain',
         'pip install requests',
         'pip install opencv-python',
         'pip install keras==2.2.0',
+        'pip install tqdm',
         'conda deactivate']
 subprocess.call(' && '.join(cmds), shell=True)
 
