@@ -3,9 +3,9 @@
 #SBATCH -J G4_19
 #SBATCH -o log_class
 #SBATCH -t 24:00:00
-#SBATCH -N 1 -n 5 
+#SBATCH -N 1 -n 10 
 #SBATCH --gres gpu:1
-#SBATCH --mem 50g
+#SBATCH --mem 100g
 
 module use /project/ece/roysam/jahandar/software/modulefiles/all
 module load CUDA/9.0.176 
