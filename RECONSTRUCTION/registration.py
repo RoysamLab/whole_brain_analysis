@@ -540,12 +540,13 @@ def registration (input_dir,output_dir,target_round = "R2", imadjust = True,
     ''' Run for images '''
     # target (reference image)
     targets = {}  # full filenames of all the images in target rounds
-
+    
     for CHN in channels_range:
         target_fileName = Set_name + target_round + "C" + str(CHN) + ".tif"
-        print("Read target image ", target_fileName)
-        targets[target_fileName] = os.path.join(input_dir, target_fileName)
-        shutil.copy (targets[target_fileName] , os.path.join(output_dir, target_fileName))
+        if os.path.isfile (os.path.join(input_dir, target_fileName )) == True:                                     # allow not continued channel iD               
+            print("Read target image ", target_fileName)
+            targets[target_fileName] = os.path.join(input_dir, target_fileName )
+            shutil.copy (targets[   target_fileName] , os.path.join(output_dir, target_fileName))
         
     # source(image to be registered)
     for sr_i, source_round in enumerate(source_round_ls):
