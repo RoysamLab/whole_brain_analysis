@@ -60,7 +60,7 @@ def generate_regions_table(table):
     # create dataframe for regions and number of cell types in region for heatmap
     columns = [column for column in table.columns if column not in ['ID', 'centroid_x', 'centroid_y',
                                                                     'xmin', 'ymin', 'xmax', 'ymax', 'region']]
-    indices = [region for region in table['region'].unique() if region is not np.nan]
+    indices = [region for region in table['region'].unique() if region is not '']
     heatmap_table = pd.DataFrame(columns=columns, index=indices)
     heatmap_table.index.name = 'region'
 
@@ -284,13 +284,12 @@ def plot_atlas_heatmap(images_path, atlas_table_fname, biomarker='NeuN'):
 
 if __name__ == '__main__':
     class_table = r'E:\50_plex\tif\pipeline2\classification_results\classification_table.csv'
-    images_path = r'D:\Jahandar\Paths\masks'
-    output_dir = r'E:\50_plex\tif\pipeline2\classification_results\regions'
-    label_all_cells = True
-    # add_region_to_classification_table(class_table, images_path, output_dir, label_all_cells=label_all_cells)
+    images_path = r'E:\50_plex\temp'
+    output_dir = r'E:\50_plex\temp'
+    label_all_cells = False
+    add_region_to_classification_table(class_table, images_path, output_dir, label_all_cells=label_all_cells)
 
-
-    atlas_table = r'E:\50_plex\tif\pipeline2\classification_results\regions\atlas_regions_table.csv'
-    for biom in ['NeuN', 'S100', 'Olig2', 'Iba1', 'RECA1']:
-        plot_atlas_heatmap(images_path, atlas_table, biomarker=biom)
-    # plot_table_heatmap(region_table)
+    # atlas_table = r'E:\50_plex\tif\pipeline2\classification_results\regions\atlas_regions_table.csv'
+    # for biom in ['NeuN', 'S100', 'Olig2', 'Iba1', 'RECA1']:
+    #     plot_atlas_heatmap(images_path, atlas_table, biomarker=biom)
+    # # plot_table_heatmap(region_table)
