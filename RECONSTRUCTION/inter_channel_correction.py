@@ -10,7 +10,7 @@ import numpy as np
 import pandas as pd
 from scipy import optimize
 from shutil import copyfile
-from skimage.exposure import rescale_intensity
+from skimage.exposure import rescale_intensity, is_low_contrast
 from scipy import linalg as LA
 from sklearn import linear_model
 from skimage import img_as_float, img_as_uint, img_as_ubyte
@@ -168,13 +168,20 @@ def inter_channel_correct_supervised(input_dir, output_dir, script_file):
                 else:
                     sys.exit('image type not uint8 or uint16')
 
-            levels = None
             # if level column in script and levels specified -> update level
             if 'level' in src_info:
                 # if levels specified
                 if src_info['level'] == src_info['level']:
                     levels = list(map(int, src_info['level'].split(',')))
+            # if level column not in script -> set dtype range as level
+            else:
+                levels = None
             source = imadjust(source, levels=levels)
+
+            # for low contrast images, adjust histogram to 99.99999% of the input range
+            if is_low_contrast(source):
+                _, p_up = np.percentile(source, (1, 99.99999))
+                source = rescale_intensity(source, in_range=(0, p_up))
 
         # if no inter correction -> just level (if defined)
         elif src_info['inter channel correction'].lower() == 'no':
@@ -269,9 +276,14 @@ def inter_channel_correct_unsupervised(input_dir, output_dir, script_file):
                 else:
                     sys.exit('image type not uint8 or uint16')
 
-
             # rescale histogram of image
             source = rescale_intensity(source)
+
+            # for low contrast images, adjust histogram to 99.99999% of the input range
+            if is_low_contrast(source):
+                _, p_up = np.percentile(source, (1, 99.99999))
+                source = rescale_intensity(source, in_range=(0, p_up))
+
 
             # save image
             save_name = os.path.join(output_dir, filename)
