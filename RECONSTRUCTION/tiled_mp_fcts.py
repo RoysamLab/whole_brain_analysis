@@ -298,10 +298,12 @@ def merge_diff_mask ( boostrap_tileRange_ls, inital_diff, paras):
             
     t1=  time.time()
     print ("Used time = ", t1-t0)
+    del inital_diff_crop
     print (" Step2 :  Merge the diff mask result into diff_label_final")
     diff_mask = diff_mask > 0
 
-    diff_final = measure.label(diff_mask)           
+    diff_final = measure.label(diff_mask)    
+    del diff_mask
     current_max_label = diff_final.max()
     
     t2=  time.time()
