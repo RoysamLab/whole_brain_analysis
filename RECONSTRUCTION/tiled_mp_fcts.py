@@ -7,11 +7,11 @@ Created on Thu Sep 26 17:29:11 2019
 import numpy as np
 from skimage.feature import ORB, match_descriptors
 from skimage.transform import ProjectiveTransform, SimilarityTransform, AffineTransform,PolynomialTransform,resize
+from skimage import segmentation,measure,morphology   
+from scipy import ndimage
 import multiprocessing
 from multiprocessing.pool import ThreadPool
 import warnings
-from skimage import segmentation,measure,morphology   
-warnings.filterwarnings("ignore")
 import time
 warnings.filterwarnings("ignore")
 
@@ -109,7 +109,7 @@ def orb_detect_tiled(img, paras, tileRange_ls,verbose = 0 ):
 
 def match_descriptors_tiled (keypoints0,descriptors0,keypoints1,descriptors1,
                              target_shape, tileRange_ls ,ck_shift = 30,verbose =0):
-    print (" \n''' match_descriptors_tiled ")
+    # print (" \n''' match_descriptors_tiled ")
     ck_tileRange_ls = []
     src   = np.zeros((1, 2))
     dst   = np.zeros((1, 2))
@@ -158,7 +158,7 @@ def match_descriptors_tiled (keypoints0,descriptors0,keypoints1,descriptors1,
     inliers = inliers[1:]          
     return src,dst
 
-def transfromest_tiled(keypoints0,descriptors0,keypoints1,descriptors1, paras, tilerange_ls ,ck_shift):
+def transfromest_tiled(keypoints0,descriptors0,keypoints1,descriptors1, paras, tilerange_ls ,ck_shift, verbose= 0):
     print (" \n''' 2. transform estimation and ransac''' ")
     if paras.multiprocess == False:  # use single process option
         src,dst = match_descriptors_tiled (keypoints0, descriptors0,
@@ -174,7 +174,8 @@ def transfromest_tiled(keypoints0,descriptors0,keypoints1,descriptors1, paras, t
                  
         pool = ThreadPool(processes=numofthreads)
         ls_size = int(np.ceil(len(tilerange_ls)/numofthreads))
-        print ("ls_size =",ls_size)
+        if verbose:
+            print ("ls_size =",ls_size)
 
         # run multiprocessin
         async_result = []
@@ -187,7 +188,8 @@ def transfromest_tiled(keypoints0,descriptors0,keypoints1,descriptors1, paras, t
                                         keypoints0,descriptors0,keypoints1,descriptors1, 
                                         paras.target_shape, tilerange_ls_mp ,ck_shift
                                     )))  # tuple of args for foo
-                print("\tmulti thread for", th, " ... ,","len(tilerange_ls_mp)=",len(tilerange_ls_mp))
+                if verbose:
+                    print("\tmulti thread for", th, " ... ,","len(tilerange_ls_mp)=",len(tilerange_ls_mp))
                         
         pool.close()        
         pool.join()
@@ -262,12 +264,12 @@ def exam_diff_mask_tile  (inital_diff, boostrap_tileRange_ls,numofthreads, min_a
     pool.join()
     # load results
     masks_labels_ls = []
-    diff_mask = np.zeros_like(inital_diff,dtype = np.bool)
+    diff_mask = np.zeros_like(inital_diff,dtype = np.bool)   # we don;t need label id, just need positve 
     for r in async_result:
         masks_labels_ls += r.get()
     for i, (tileRange,masks_labels) in enumerate( zip(boostrap_tileRange_ls,masks_labels_ls)): 
         diff_mask[ tileRange[0]:tileRange[2],   #i: i+crop_height
-                   tileRange[1]:tileRange[3]] = masks_labels
+                   tileRange[1]:tileRange[3]] = True #masks_labels
     return diff_mask
 
 
@@ -298,12 +300,12 @@ def merge_diff_mask ( boostrap_tileRange_ls, inital_diff, paras):
             
     t1=  time.time()
     print ("Used time = ", t1-t0)
-#    del inital_diff_crop
     print (" Step2 :  Merge the diff mask result into diff_label_final")
-    diff_mask = diff_mask > 0
+    diff_mask = np.array( diff_mask > 0, dtype = np.int)
 
-    diff_final = measure.label(diff_mask)    
-    del diff_mask
+    # diff_final = measure.label(diff_mask)      # shows error when imag size is extremly large
+    diff_final = ndimage.label(diff_mask)[0]           
+    
     current_max_label = diff_final.max()
     
     t2=  time.time()
