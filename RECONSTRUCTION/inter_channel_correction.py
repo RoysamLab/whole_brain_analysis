@@ -169,13 +169,11 @@ def inter_channel_correct_supervised(input_dir, output_dir, script_file):
                     sys.exit('image type not uint8 or uint16')
 
             # if level column in script and levels specified -> update level
+            levels = None
             if 'level' in src_info:
                 # if levels specified
                 if src_info['level'] == src_info['level']:
                     levels = list(map(int, src_info['level'].split(',')))
-            # if level column not in script -> set dtype range as level
-            else:
-                levels = None
             source = imadjust(source, levels=levels)
 
             # for low contrast images, adjust histogram to 99.99999% of the input range
