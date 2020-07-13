@@ -9,7 +9,7 @@ os.system('conda create -n brain python=3.6 --yes')
 cmds = ['source activate brain',
         'pip install pandas',
         'conda install --yes scikit-learn',
-        'conda install --yes -c conda-forge scikit-image',
+        'conda install --yes -c conda-forge scikit-image=0.16.1',
         'conda install --yes -c conda-forge tifffile',
         'pip install tensorflow-gpu==1.9.0',
         'pip install cython',
