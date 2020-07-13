@@ -1,6 +1,6 @@
 # WHOLE BRAIN ANALYSIS PIPELINE
 This pipeline is for processing multispectral fluorescence 2D image datasets.
-It will correct the acquired images for:
+It will correct the multiplexed images for:
 - Pixel-to-pixel registration due to stage misalignemnt between rounds
 - Intra-channel non-specific signal correction of autofluorescence, 
 non-uniform illumianation shading, Photo-pleaching and tissue folds
@@ -13,7 +13,10 @@ And generate quantitative readouts for each cell including:
 - Cell status
 
 ## Setup:
-Whole brain analysis pipeline depends on the following python libraries:
+The pipeline is supported for *Windows* and *Linux* with CUDA-enabled GPU and enough RAM depending on the dataset size.
+
+
+### Python Dependencies
 - numpy
 - scipy
 - pandas
@@ -21,14 +24,14 @@ Whole brain analysis pipeline depends on the following python libraries:
 - requests
 - progressbar
 - scikit-learn
-- scikit-image
+- scikit-image==0.16.1
 - tifffile
 - opencv-python
 - tensorflow-gpu==1.9.0
 - pycocotools
 - keras == 2.2.0
 
-`setup_env_lin.py` creates a conda environment (`brain`) and installs the requird libraries.
+`setup_env.py` creates a conda environment (`brain`) and installs the required libraries.
 
 __Note:__ tensorflow-gpu library requires __CUDA toolkit 9.0__ and __cuDNN 7.0.5__. 
 You can follow the instructions from [here](https://github.com/easy-tensorflow/easy-tensorflow/tree/master/0_Setup_TensorFlow) to install the TensorFlow and dependencies.
@@ -40,110 +43,106 @@ For __detection__ module you need to install __protoc__. Download executable fro
 protoc object_detection/protos/*.proto --python_out=.
 ```
 
+Setting up the environment and installing the requirements takes ~45 minutes.  
 ## 1. Reconstruction
+Parse the arguments to  `main_reconstruction.py`:
+```bash
+python main_reconstruction.py \
+   --INPUT_DIR /brazos/roysam/datasets/TBI/G2_Sham_Trained/G2_BR#22_HC_13L/original \
+   --OUTPUT_DIR /brazos/roysam/datasets/TBI/G2_Sham_Trained/G2_BR#22_HC_13L \
+   --MODE supervised \
+   --SCRIPT scripts/20_plex.csv
+```
 
-1. Specify your OS and select `main_reconstruction_lin.py` or `main_reconstruction_win.py`.
+```bash
+python main_reconstruction.py \
+   --INPUT_DIR /brazos/roysam/datasets/TBI/G2_Sham_Trained/G2_BR#22_HC_13L/original \
+   --OUTPUT_DIR /brazos/roysam/datasets/TBI/G2_Sham_Trained/G2_BR#22_HC_13L \
+   --MODE unsupervised \
+   --DEFAULT_BOX 34000 8000 44000 15000 \
+   --BRIGHTFIELD 11
+```
 
-    __Notice__: You need __Matlab__ for windows.
+__Arguments:__
+- `INPUT_DIR` : Path to the directory containing input images
+- `OUTPUT_DIR` : Path to the directory saving output images
+- `MODE`: `supervised` or `unsupervised`
+- if `unsupervised`:
+  - `DEFAULT_BOX` : `[xmin, ymin, xmax, ymax]`
+  
+  ![Alt text](files/default_box.png)
+  
+  - `BRIGHTFIELD` : Number of Brightfield channel or `None`
+  
+  Will generate a script in `OUTPUT_DIR/script.csv` like follows:
+  
+  filename |biomarker   |intra channel correction|inter channel correction|channel 1|channel 2|channel 3|xmin |ymin |xmax |ymax
+  ---------|------------|------------------------|------------------------|---------|---------|---------|-----|-----|-----|-----
+  R1C1.tif |            |Yes                     |Yes                     |         |         |         |34000|8000 |44000|15000
+  R1C10.tif|            |Yes                     |Yes                     |R1C7.tif |R1C5.tif |         |34000|8000 |44000|15000
+  R1C11.tif|Brightfield |No                      |No                      |         |         |         |34000|8000 |44000|15000
+  R1C2.tif |            |Yes                     |Yes                     |R1C1.tif |         |         |34000|8000 |44000|15000
+  R1C3.tif |            |Yes                     |Yes                     |         |         |         |34000|8000 |44000|15000
+  R1C4.tif |            |Yes                     |Yes                     |R1C1.tif |         |         |34000|8000 |44000|15000
+  R1C5.tif |            |Yes                     |Yes                     |R1C6.tif |         |         |34000|8000 |44000|15000
+  R1C6.tif |            |Yes                     |Yes                     |R1C5.tif |         |         |34000|8000 |44000|15000
+  R1C7.tif |            |Yes                     |Yes                     |R1C10.tif|R1C5.tif |         |34000|8000 |44000|15000
+  R1C8.tif |            |Yes                     |Yes                     |R1C7.tif |         |         |34000|8000 |44000|15000
+  R1C9.tif |            |Yes                     |Yes                     |         |         |         |34000|8000 |44000|15000
+  R2C1.tif |            |Yes                     |Yes                     |         |         |         |34000|8000 |44000|15000
+  R2C10.tif|            |Yes                     |Yes                     |R2C8.tif |         |         |34000|8000 |44000|15000
+  R2C11.tif|Brightfield |No                      |No                      |         |         |         |34000|8000 |44000|15000
+  R2C2.tif |            |Yes                     |Yes                     |         |         |         |34000|8000 |44000|15000
+  R2C3.tif |            |Yes                     |Yes                     |R2C8.tif |R2C6.tif |         |34000|8000 |44000|15000
+  R2C4.tif |            |Yes                     |Yes                     |         |         |         |34000|8000 |44000|15000
+  R2C5.tif |            |Yes                     |Yes                     |R2C3.tif |R2C6.tif |         |34000|8000 |44000|15000
+  R2C6.tif |            |Yes                     |Yes                     |R2C3.tif |R2C8.tif |         |34000|8000 |44000|15000
+  R2C7.tif |            |Yes                     |Yes                     |R2C6.tif |R2C8.tif |R2C5.tif |34000|8000 |44000|15000
+  R2C8.tif |            |Yes                     |Yes                     |         |         |         |34000|8000 |44000|15000
+  R2C9.tif |            |Yes                     |Yes                     |         |         |         |34000|8000 |44000|15000
 
-2. Parse the arguments to  `main_reconstruction_*.py`:
-  ```bash
-  python main_reconstruction_lin.py \
-       --INPUT_DIR /brazos/roysam/datasets/TBI/G2_Sham_Trained/G2_BR#22_HC_13L/original \
-       --OUTPUT_DIR /brazos/roysam/datasets/TBI/G2_Sham_Trained/G2_BR#22_HC_13L \
-       --MODE supervised \
-       --SCRIPT scripts/20_plex.csv
-  ```
+- if `supervised` :
+  - `SCRIPT` : Path to the updated `script.csv` file for reconstruction configuration:
+  
+  filename |biomarker   |intra channel correction|inter channel correction|channel 1|channel 2|channel 3|xmin |ymin |xmax |ymax
+  ---------|------------|------------------------|------------------------|---------|---------|---------|-----|-----|-----|-----
+  R1C1.tif |DAPI        |Yes                     |No                      |         |         |         |34000|8000 |44000|15000
+  R1C10.tif|NFH         |No                      |Yes                     |R1C7.tif |         |         |34000|8000 |44000|15000
+  R1C11.tif|Brightfield |No                      |No                      |         |         |         |34000|8000 |44000|15000
+  R1C2.tif |DAPI        |Yes                     |No                      |         |         |         |34000|8000 |44000|15000
+  R1C3.tif |CC3         |Yes                     |No                      |         |         |         |34000|8000 |44000|15000
+  R1C4.tif |NeuN        |Yes                     |No                      |         |         |         |34000|8000 |44000|15000
+  R1C5.tif |MBP         |No                      |Yes                     |R1C6.tif |         |         |34000|8000 |44000|15000
+  R1C6.tif |RECA1       |Yes                     |Yes                     |R1C5.tif |R1C8.tif |         |22000|24000|32000|31000
+  R1C7.tif |IBA1        |Yes                     |Yes                     |R1C10.tif|R1C5.tif |R1C8.tif |34000|8000 |44000|15000
+  R1C8.tif |TomatoLectin|Yes                     |Yes                     |R1C7.tif |         |         |34000|8000 |44000|15000
+  R1C9.tif |PCNA        |Yes                     |No                      |         |         |         |34000|8000 |44000|15000
+  R2C1.tif |DAPI        |Yes                     |No                      |         |         |         |34000|8000 |44000|15000
+  R2C10.tif|MAP2        |No                      |Yes                     |R2C8.tif |         |         |34000|8000 |44000|15000
+  R2C11.tif|Brightfield |No                      |No                      |         |         |         |34000|8000 |44000|15000
+  R2C2.tif |DAPI        |Yes                     |No                      |         |         |         |34000|8000 |44000|15000
+  R2C3.tif |GAD67       |Yes                     |Yes                     |R2C8.tif |R2C6.tif |         |34000|16000|44000|23000
+  R2C4.tif |GFAP        |Yes                     |No                      |         |         |         |34000|8000 |44000|15000
+  R2C5.tif |Parvalbumin |Yes                     |Yes                     |R1C5.tif |R2C6.tif |         |31000|12000|41000|19000
+  R2C6.tif |S100        |Yes                     |Yes                     |R2C3.tif |R2C8.tif |         |34000|8000 |44000|15000
+  R2C7.tif |Calretinin  |Yes                     |Yes                     |R2C6.tif |R2C8.tif |         |18000|1000 |28000|17000
+  R2C8.tif |TomatoLectin|Yes                     |No                      |         |         |         |34000|8000 |44000|15000
+  R2C9.tif |CD31        |Yes                     |No                      |         |         |         |34000|8000 |44000|15000
 
-  ```bash
-  python main_reconstruction_lin.py \
-       --INPUT_DIR /brazos/roysam/datasets/TBI/G2_Sham_Trained/G2_BR#22_HC_13L/original \
-       --OUTPUT_DIR /brazos/roysam/datasets/TBI/G2_Sham_Trained/G2_BR#22_HC_13L \
-       --MODE unsupervised \
-       --DEFAULT_BOX 34000 8000 44000 15000 \
-       --BRIGHTFIELD 11
-  ```
-
-  __Arguments:__
-  - `INPUT_DIR` : Path to the directory containing input images
-  - `OUTPUT_DIR` : Path to the directory saving output images
-  - `MODE`: `supervised` or `unsupervised`
-    - if `unsupervised`:
-      - `DEFAULT_BOX` : `[xmin, ymin, xmax, ymax]`
-      
-      ![Alt text](files/default_box.png)
-      
-      - `BRIGHTFIELD` : Number of Brightfield channel or `None`
-      
-      Will generate a script in `OUTPUT_DIR/script.csv` like follows:
-      
-      filename |biomarker   |intra channel correction|inter channel correction|channel 1|channel 2|channel 3|xmin |ymin |xmax |ymax
-      ---------|------------|------------------------|------------------------|---------|---------|---------|-----|-----|-----|-----
-      R1C1.tif |            |Yes                     |Yes                     |         |         |         |34000|8000 |44000|15000
-      R1C10.tif|            |Yes                     |Yes                     |R1C7.tif |R1C5.tif |         |34000|8000 |44000|15000
-      R1C11.tif|Brightfield |No                      |No                      |         |         |         |34000|8000 |44000|15000
-      R1C2.tif |            |Yes                     |Yes                     |R1C1.tif |         |         |34000|8000 |44000|15000
-      R1C3.tif |            |Yes                     |Yes                     |         |         |         |34000|8000 |44000|15000
-      R1C4.tif |            |Yes                     |Yes                     |R1C1.tif |         |         |34000|8000 |44000|15000
-      R1C5.tif |            |Yes                     |Yes                     |R1C6.tif |         |         |34000|8000 |44000|15000
-      R1C6.tif |            |Yes                     |Yes                     |R1C5.tif |         |         |34000|8000 |44000|15000
-      R1C7.tif |            |Yes                     |Yes                     |R1C10.tif|R1C5.tif |         |34000|8000 |44000|15000
-      R1C8.tif |            |Yes                     |Yes                     |R1C7.tif |         |         |34000|8000 |44000|15000
-      R1C9.tif |            |Yes                     |Yes                     |         |         |         |34000|8000 |44000|15000
-      R2C1.tif |            |Yes                     |Yes                     |         |         |         |34000|8000 |44000|15000
-      R2C10.tif|            |Yes                     |Yes                     |R2C8.tif |         |         |34000|8000 |44000|15000
-      R2C11.tif|Brightfield |No                      |No                      |         |         |         |34000|8000 |44000|15000
-      R2C2.tif |            |Yes                     |Yes                     |         |         |         |34000|8000 |44000|15000
-      R2C3.tif |            |Yes                     |Yes                     |R2C8.tif |R2C6.tif |         |34000|8000 |44000|15000
-      R2C4.tif |            |Yes                     |Yes                     |         |         |         |34000|8000 |44000|15000
-      R2C5.tif |            |Yes                     |Yes                     |R2C3.tif |R2C6.tif |         |34000|8000 |44000|15000
-      R2C6.tif |            |Yes                     |Yes                     |R2C3.tif |R2C8.tif |         |34000|8000 |44000|15000
-      R2C7.tif |            |Yes                     |Yes                     |R2C6.tif |R2C8.tif |R2C5.tif |34000|8000 |44000|15000
-      R2C8.tif |            |Yes                     |Yes                     |         |         |         |34000|8000 |44000|15000
-      R2C9.tif |            |Yes                     |Yes                     |         |         |         |34000|8000 |44000|15000
-
-    - if `supervised` :
-      - `SCRIPT` : Path to the updated `script.csv` file for reconstruction configuration:
-      
-      filename |biomarker   |intra channel correction|inter channel correction|channel 1|channel 2|channel 3|xmin |ymin |xmax |ymax
-      ---------|------------|------------------------|------------------------|---------|---------|---------|-----|-----|-----|-----
-      R1C1.tif |DAPI        |Yes                     |No                      |         |         |         |34000|8000 |44000|15000
-      R1C10.tif|NFH         |No                      |Yes                     |R1C7.tif |         |         |34000|8000 |44000|15000
-      R1C11.tif|Brightfield |No                      |No                      |         |         |         |34000|8000 |44000|15000
-      R1C2.tif |DAPI        |Yes                     |No                      |         |         |         |34000|8000 |44000|15000
-      R1C3.tif |CC3         |Yes                     |No                      |         |         |         |34000|8000 |44000|15000
-      R1C4.tif |NeuN        |Yes                     |No                      |         |         |         |34000|8000 |44000|15000
-      R1C5.tif |MBP         |No                      |Yes                     |R1C6.tif |         |         |34000|8000 |44000|15000
-      R1C6.tif |RECA1       |Yes                     |Yes                     |R1C5.tif |R1C8.tif |         |22000|24000|32000|31000
-      R1C7.tif |IBA1        |Yes                     |Yes                     |R1C10.tif|R1C5.tif |R1C8.tif |34000|8000 |44000|15000
-      R1C8.tif |TomatoLectin|Yes                     |Yes                     |R1C7.tif |         |         |34000|8000 |44000|15000
-      R1C9.tif |PCNA        |Yes                     |No                      |         |         |         |34000|8000 |44000|15000
-      R2C1.tif |DAPI        |Yes                     |No                      |         |         |         |34000|8000 |44000|15000
-      R2C10.tif|MAP2        |No                      |Yes                     |R2C8.tif |         |         |34000|8000 |44000|15000
-      R2C11.tif|Brightfield |No                      |No                      |         |         |         |34000|8000 |44000|15000
-      R2C2.tif |DAPI        |Yes                     |No                      |         |         |         |34000|8000 |44000|15000
-      R2C3.tif |GAD67       |Yes                     |Yes                     |R2C8.tif |R2C6.tif |         |34000|16000|44000|23000
-      R2C4.tif |GFAP        |Yes                     |No                      |         |         |         |34000|8000 |44000|15000
-      R2C5.tif |Parvalbumin |Yes                     |Yes                     |R1C5.tif |R2C6.tif |         |31000|12000|41000|19000
-      R2C6.tif |S100        |Yes                     |Yes                     |R2C3.tif |R2C8.tif |         |34000|8000 |44000|15000
-      R2C7.tif |Calretinin  |Yes                     |Yes                     |R2C6.tif |R2C8.tif |         |18000|1000 |28000|17000
-      R2C8.tif |TomatoLectin|Yes                     |No                      |         |         |         |34000|8000 |44000|15000
-      R2C9.tif |CD31        |Yes                     |No                      |         |         |         |34000|8000 |44000|15000
- 
 ## 2. Detection
 Parse the arguments to  `main_detection.py`:
   - __if only DAPI:__
     ```bash
     python main_detection.py \
-       --INPUT_DIR /brazos/roysam/datasets/TBI/G2_Sham_Trained/G2_BR#22_HC_13L/original \
-       --OUTPUT_DIR /brazos/roysam/datasets/TBI/G2_Sham_Trained/G2_BR#22_HC_13L/detection_results \
+       --INPUT_DIR /path/to/input/dir \
+       --OUTPUT_DIR /path/to/output/dir \
        --DAPI R2C1.tif
     ```
   - __if DAPI + Histones:__
     ```bash
     python main_detection.py \
-       --INPUT_DIR /brazos/roysam/datasets/TBI/G2_Sham_Trained/G2_BR#22_HC_13L/original \
-       --OUTPUT_DIR /brazos/roysam/datasets/TBI/G2_Sham_Trained/G2_BR#22_HC_13L/detection_results \
+       --INPUT_DIR /path/to/input/dir \
+       --OUTPUT_DIR /path/to/input/dir \
        --DAPI R2C1.tif \
        --HISTONES R2C2.tif
     ```
@@ -153,30 +152,31 @@ Parse the arguments to  `main_classification.py`:
   - __if first time classifying:__
     ```bash
     python main_classification.py \
-    --INPUT_DIR /brazos/roysam/datasets/TBI/G2_Sham_Trained/G2_BR#22_HC_13L/original \
-    --OUTPUT_DIR /brazos/roysam/datasets/TBI/G2_Sham_Trained/G2_BR#22_HC_13L/classification_results \
-    --BBXS_FILE /brazos/roysam/datasets/TBI/G2_Sham_Trained/G2_BR#22_HC_13L/detection_results/bbxs_detection.txt \
-    --DAPI S1_R2C1.tif \
-    --HISTONES S1_R2C2.tif \
-    --NEUN S1_R2C4.tif \
-    --S100 S1_R3C5.tif \
-    --OLIG2 S1_R1C9.tif \
-    --IBA1 S1_R1C5.tif \
-    --RECA1 S1_R1C6.tif \
-    --test_mode first  
+    --INPUT_DIR /path/to/input/dir \
+    --OUTPUT_DIR /path/to/output/dir \
+    --BBXS_FILE /path/to/bbxs_detection.txt \
+    --DAPI R2C1.tif \
+    --HISTONES R2C2.tif \
+    --NEUN R2C4.tif \
+    --S100 R3C5.tif \
+    --OLIG2 R1C9.tif \
+    --IBA1 R1C5.tif \
+    --RECA1 R1C6.tif \
+    --test_mode first \
+    --thresholds 0.5 0.5 0.5 0.5 0.5
     ```
   - __if you want to adjust the classification results based on new thresholds:__
     ```bash
-    --INPUT_DIR /brazos/roysam/datasets/TBI/G2_Sham_Trained/G2_BR#22_HC_13L/original \
-    --OUTPUT_DIR /brazos/roysam/datasets/TBI/G2_Sham_Trained/G2_BR#22_HC_13L/classification_results \
-    --BBXS_FILE /brazos/roysam/datasets/TBI/G2_Sham_Trained/G2_BR#22_HC_13L/detection_results/bbxs_detection.txt \
-    --DAPI S1_R2C1.tif \
-    --HISTONES S1_R2C2.tif \
-    --NEUN S1_R2C4.tif \
-    --S100 S1_R3C5.tif \
-    --OLIG2 S1_R1C9.tif \
-    --IBA1 S1_R1C5.tif \
-    --RECA1 S1_R1C6.tif \
+    --INPUT_DIR /path/to/input/dir \
+    --OUTPUT_DIR /path/to/output/dir \
+    --BBXS_FILE /path/to/bbxs_detection.txt \
+    --DAPI R2C1.tif \
+    --HISTONES R2C2.tif \
+    --NEUN R2C4.tif \
+    --S100 R3C5.tif \
+    --OLIG2 R1C9.tif \
+    --IBA1 R1C5.tif \
+    --RECA1 R1C6.tif \
     --test_mode adjust \
     --thresholds .5 .5 .5 .8 .5
     ```
@@ -190,14 +190,14 @@ Parse the arguments to  `GenerateICE_FCS_script.py`:
   - From bbox
     ```bash
     python PHENOTYPING/GenerateICE_FCS_script.py \
-    --INPUT_DIR=/project/roysam/datasets/TBI/G2_Sham_Trained/G2_BR#22_HC_13L/final \
-    --OUTPUT_DIR=/project/roysam/datasets/TBI/G2_Sham_Trained/G2_BR#22_HC_13L/ICE \
+    --INPUT_DIR /path/to/input/dir \
+    --OUTPUT_DIR /path/to/output/dir \
     --maskType=b \
-    --maskDir=/project/roysam/datasets/TBI/G2_Sham_Trained/G2_BR#22_HC_13L/detection_results/bbxs_detection.txt \
-    --CHNDEF=/project/roysam/datasets/TBI/20_plex.csv \
-    --downscaleRate=4 \  
-    --seedSize=2 \
-    --erosion_px=5
+    --maskDir /path/to/bbxs_detection.txt \
+    --CHNDEF /path/to/channel/description/50_plex.csv \
+    --downscaleRate 4 \  
+    --seedSize 2 \
+    --erosion_px 5
     ```
 __Arguments:__
 - `INPUT_DIR` : Path to the directory containing input images
@@ -286,3 +286,17 @@ __Arguments:__
 - `OUTPUT_DIR`: Path to output masks
 - `CLASSIFICATION_table_path`: Path to classification table as in 3
 - `SEGMENTATION_MASKS`: Path to segmentation masks
+
+## Expected run time on a "normal" desktop computer
+The sample __50_plex__ dataset in a windows machine with the following configuration:
+- 32 core Intel(R) Xeon(R) CPU E5-2687W 0 @ 3.10GHz
+- NVIDIA GeForce GTX 1080 Ti
+- 256 GB RAM
+
+The run time for each module is:
+- RECONSTRUCTION: 6 hours
+- DETECTION: 4 hours
+- CLASSIFICATION: 2 hours
+- PHENOTYPING: 1 hour
+- MORPHOLOGICAL MASKING: 4 hours
+

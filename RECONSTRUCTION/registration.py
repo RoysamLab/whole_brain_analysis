@@ -491,7 +491,7 @@ def registration (input_dir,output_dir,target_round = "R2", imadjust = True,
         paras.set_tile_shape([])  # no tiling, cautious might be extremely slow!
 
     if os.path.exists(output_dir) is False:
-        os.mkdir(output_dir)           
+        os.makedirs(output_dir)
 
     #    Set_name = os.listdir(args.input_dir)[1].split("_")[0] + "_"
     input_dir_image = [f for f in os.listdir(input_dir) if f.endswith('.tif')]

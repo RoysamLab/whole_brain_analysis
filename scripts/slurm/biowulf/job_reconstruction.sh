@@ -10,7 +10,7 @@
 source deactivate
 conda  activate /data/jahanipourj2/software/miniconda/envs/brain
 
-python /data/jahanipourj2/codes/whole_brain_analysis/main_reconstruction_lin.py \
+python /data/jahanipourj2/codes/whole_brain_analysis/main_reconstruction.py \
        --INPUT_DIR=/data/jahanipourj2/datasets/50PLX/S3/original \
        --OUTPUT_DIR=/data/jahanipourj2/datasets/50PLX/S3 \
        --MODE=supervised \

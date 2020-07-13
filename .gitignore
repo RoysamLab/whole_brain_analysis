@@ -108,3 +108,4 @@ venv.bak/
 
 # temp
 temp.py
+DETECTION/models/*

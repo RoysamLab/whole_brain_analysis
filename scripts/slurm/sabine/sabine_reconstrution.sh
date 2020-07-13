@@ -10,7 +10,7 @@
 module load Anaconda3
 source activate /brazos/roysam/shared/miniconda/envs/brain
 
-python main_reconstruction_lin.py \
+python main_reconstruction.py \
        --INPUT_DIR=/brazos/roysam/datasets/TBI/G2_Sham_Trained/G2_BR#22_HC_13L/original \
        --OUTPUT_DIR=/brazos/roysam/datasets/TBI/G2_Sham_Trained/G2_BR#22_HC_13L \
        --MODE=supervised \
