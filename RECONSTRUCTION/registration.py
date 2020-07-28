@@ -14,10 +14,9 @@ Improvements compared to above
 --- conda packages ---
 conda install -c conda-forge scikit-image \
 conda install scikit-learn \
-conda install -c conda-forge tifffile 
 
 --- e.g. ---
-&python registration_multiRds.py \
+&python registration.py \
     -i [inputPath] \
     -o [outputPath]
 '''
@@ -469,7 +468,7 @@ def registrationORB_tiled(targets, sources, paras, output_dir,
 
 
 def registration (input_dir,output_dir,target_round = "R2", imadjust = True,
-                  multiprocess = True, keypoint_dir = None,bootstrap = True,
+                  multiprocess = True, keypoint_dir = None,bootstrap =True,
                   demo = False , tiling = "1000,1000" ,nKeypoint=  300000):
 
     # Parameters
@@ -478,7 +477,7 @@ def registration (input_dir,output_dir,target_round = "R2", imadjust = True,
     paras.set_n_keypoints(nKeypoint)
     # paras.set_max_trials(args.maxtrials)
 
-    paras.multiprocess  = False if str(multiprocess).lower() in ["f", "0", "false"] else str(multiprocess)
+    paras.multiprocess  = False if str(multiprocess).lower() in ["f", "0", "false"] else multiprocess
     paras.keypoint_dir  = keypoint_dir
     paras.bootstrap     = str2bool(bootstrap)
     paras.demo          = str2bool(demo) 
@@ -491,7 +490,7 @@ def registration (input_dir,output_dir,target_round = "R2", imadjust = True,
         paras.set_tile_shape([])  # no tiling, cautious might be extremely slow!
 
     if os.path.exists(output_dir) is False:
-        os.makedirs(output_dir)
+        os.mkdir(output_dir)           
 
     #    Set_name = os.listdir(args.input_dir)[1].split("_")[0] + "_"
     input_dir_image = [f for f in os.listdir(input_dir) if f.endswith('.tif')]
@@ -540,7 +539,7 @@ def registration (input_dir,output_dir,target_round = "R2", imadjust = True,
     ''' Run for images '''
     # target (reference image)
     targets = {}  # full filenames of all the images in target rounds
-    
+
     for CHN in channels_range:
         target_fileName = Set_name + target_round + "C" + str(CHN) + ".tif"
         if os.path.isfile (os.path.join(input_dir, target_fileName )) == True:                                     # allow not continued channel iD               
@@ -555,7 +554,7 @@ def registration (input_dir,output_dir,target_round = "R2", imadjust = True,
         for CHN in channels_range:        
             source_fileName = Set_name + source_round + "C" + str(CHN) + ".tif"
             source_fileDir  = os. path.join(input_dir , source_fileName)   
-            if os.path.isfile (source_fileDir) == True:                                     # allow not continues channel iD               
+            if os.path.isfile (source_fileDir) == True:                                     # allow not continued channel iD               
                 sources[source_fileName] =  source_fileDir
         # Run
         if not os.path.exists(output_dir):

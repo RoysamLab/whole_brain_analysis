@@ -168,7 +168,6 @@ def ransac_tile(data, model_class, min_samples, residual_threshold,
     best_inlier_residuals_sum = np.inf
     best_inliers = None
     best_inlier_tile_mean =0
-    best_inlier_tile_min = 0
     
     random_state = check_random_state(random_state)
 
@@ -201,9 +200,7 @@ def ransac_tile(data, model_class, min_samples, residual_threshold,
     # for the first run use initial guess of inliers
     spl_idxs = (initial_inliers if initial_inliers is not None
                     else random_select_tile (spl_tile_ls, min_samples) )
-
-    
-#    spl_idxs_crucial = []
+  
     crucial_id_tile_ls = []
     for num_trials in range(max_trials):
         # do sample selection according data pairs
@@ -216,21 +213,17 @@ def ransac_tile(data, model_class, min_samples, residual_threshold,
 
         # estimate model for current random sample set
         sample_model = model_class()
-
         success = sample_model.estimate(*samples)
         # backwards compatibility
         if success is not None and not success:
             continue
-
         # optional check if estimated model is valid
         if is_model_valid is not None and not is_model_valid(sample_model, *samples):
             continue
 
         sample_model_residuals = np.abs(sample_model.residuals(*data))
-        # consensus set / inliers
-       
-        sample_model_inliers = sample_model_residuals < residual_threshold
-        
+        # consensus set / inliers       
+        sample_model_inliers = sample_model_residuals < residual_threshold        
         sample_model_residuals_sum = np.sum(np.abs(sample_model_residuals))
 
         # choose as new best model if number of inliers is maximal
@@ -315,10 +308,15 @@ def ransac_tile(data, model_class, min_samples, residual_threshold,
                     
     # estimate final model using all inliers
     if best_inliers is not None:
-        # select inliers for each data array
-        data_inliers = [d[best_inliers] for d in data]
-        print ("Estimate the Best model")
-        del sample_model,data,sample_inlier_tile_perc,sample_model_residuals,sample_model_inliers
+        # in case num(best_inliers) too large,  model.estimate run out of memory
+        best_inliers_subset= np.zeros_like(best_inliers)
+        spl_idxs = random_select_tile (spl_tile_ls, min(best_inliers.sum(), min_samples*1000)) 
+        best_inliers_subset[spl_idxs] = True
+        # select a random subset of inliers for each data array
+        best_inliers_subset = best_inliers_subset* best_inliers
+        data_inliers = [d[best_inliers_subset] for d in data]
+        print ("Estimate the Best model...")
+        del sample_model,data,sample_inlier_tile_perc,sample_model_residuals,sample_model_inliers,success
         best_model.estimate(*data_inliers)    
-   
+        print ("Best Model generated")   
     return best_model, best_inliers
