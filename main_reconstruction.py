@@ -34,7 +34,6 @@ args = parser.parse_args()
 
 
 # REGISTRATION
-
 RECONSTRUCTION_DIR = os.path.join(os.getcwd(),"RECONSTRUCTION")
 sys.path.append(RECONSTRUCTION_DIR)  # To find local version of the library
 from registration import registration

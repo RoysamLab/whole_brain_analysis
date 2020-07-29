@@ -564,7 +564,7 @@ def registration (input_dir,output_dir,target_round = "R2", imadjust = True,
 
         if sr_i == 0:  # only need keypoint extraction for target for once
             keypoints1, descriptors1 = registrationORB_tiled(targets, sources, paras,                                                             
-                                                            output_dir  =output_dir,
+                                                            output_dir  = output_dir,
 
                                                             save_target = save_target,
                                                             imadjust    = paras.imadjust 

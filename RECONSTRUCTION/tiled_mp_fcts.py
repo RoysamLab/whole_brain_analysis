@@ -24,7 +24,7 @@ def featureExtract_tiled(img, paras, tileRange_ls,verbose=False):
 
     else:                              # use multiprocess option
         # Set numOfThreads
-        if paras.multiprocess.isnumeric():
+        if str(paras.multiprocess).isnumeric():
             numOfThreads = int(paras.multiprocess)
         else:
             numOfThreads = multiprocessing.cpu_count()
@@ -167,7 +167,7 @@ def transfromest_tiled(keypoints0,descriptors0,keypoints1,descriptors1, paras, t
                                          ck_shift = paras.ck_shift)        
     else:                              # use multiprocess option
         # set numofthreads
-        if paras.multiprocess.isnumeric():
+        if str(paras.multiprocess).isnumeric():
             numofthreads = int(paras.multiprocess)
         else:
             numofthreads = multiprocessing.cpu_count()
@@ -292,7 +292,7 @@ def merge_diff_mask ( boostrap_tileRange_ls, inital_diff, paras):
                                                                            min_size = min_area/10)            
         else:                              # use multiprocess option
             # set numofthreads
-            if paras.multiprocess.isnumeric():
+            if str(paras.multiprocess).isnumeric():
                 numofthreads = int(paras.multiprocess)
             else:
                 numofthreads = multiprocessing.cpu_count()
