@@ -6,7 +6,7 @@ Input:
     [maskType] :  input mask type options   
             Opt1 detection bouding box:  "b"/"bbox"
             Opt2 segmentation mask: "m"/"mask"
-    [nuclearMaskDir]: mask directory
+    [MaskDir]: mask directory
             Opt1 bbox: *.txt
                 header contains: ['ID', 'centroid_x', 'centroid_y', 'xmin', 'ymin', 'xmax', 'ymax']
             Opt2 mask: .out /.txt
@@ -54,7 +54,7 @@ e.g.
         --INPUT_DIR="$data_dir"/cell_type_images \
         --OUTPUT_DIR="$output_dir" \
         --maskType=b \
-        --nuclearMaskDir="$data_dir"/detection_results/bbxs_detection.txt \
+        --MaskDir="$data_dir"/detection_results/bbxs_detection.txt \
         --downscaleRate=4 \
         --seedSize=2 \
         --erosion_px=5 \
@@ -65,7 +65,7 @@ e.g.
         --INPUT_DIR="/project/roysam/datasets/TBI/G2_Sham_Trained/G2_BR#22_HC_13L/final" \
         --OUTPUT_DIR=/project/roysam/datasets/TBI/G2_Sham_Trained/G2_BR#22_HC_13L/ICE \
         --maskType="b" \
-        --nuclearMaskDir=/project/roysam/datasets/TBI/G2_Sham_Trained/G2_BR#22_HC_13L/detection_results/bbxs_detection.txt \
+        --MaskDir=/project/roysam/datasets/TBI/G2_Sham_Trained/G2_BR#22_HC_13L/detection_results/bbxs_detection.txt \
         --CHNDEF="/project/roysam/datasets/TBI/20_plex.csv" \
         --downscaleRate=4 \
         --seedSize=2 \
@@ -75,7 +75,7 @@ e.g.
     python GenerateICE_FCS_script.py \
         --INPUT_DIR=/data/xiaoyang/CHN50 \
         --maskType=mask \
-        --nuclearMaskDir=$data_dir \
+        --MaskDir=$data_dir \
         --OUTPUT_DIR=/data/xiaoyang/CHN50/mrcnn_seg_data/ICE_FCS_files \
         --downscaleRate=4 \
         --seedSize=3\
@@ -117,7 +117,7 @@ parser.add_argument('--INPUT_DIR', required=False,
 parser.add_argument('--maskType', required= True,                        
                     default = "b",  
                     help='Mask type: "b"/"bbox","m"/"mask", default = "bbox" ')                
-parser.add_argument('--nuclearMaskDir', required= True,
+parser.add_argument('--MaskDir', required= True,
                     default = '/data/xiaoyang/10_plex_stroke_rat/detection_results/bbxs_detection.txt',
                     help='Full Path name of mask.out/bbox.txt, default = "/data/xiaoyang/10_plex_stroke_rat/detection_results/bbxs_detection.txt" ')
 parser.add_argument('--OUTPUT_DIR', required= False,
@@ -128,6 +128,11 @@ parser.add_argument('--CHNDEF', required= False,
                     metavar = "/path/to/csvFeatureFile/",
                     default = None,
                     help='localtion for xmlfile or csv file, if not provide then default to localize the INPUT_DIR')          
+parser.add_argument('--ftable', required= True,
+                    default = None,
+                    help='Full Path name of user defined featuretable, if None then automatically generate intrinsic featureby mask/bbox')
+
+
 parser.add_argument('--saveVis', required= False,
                     type = int,
                     default = 1,
@@ -154,6 +159,10 @@ parser.add_argument('--wholeCellDir', required= False,
                     metavar = "/path/to/maskfile/",
                     default = '/data/xiaoyang/10_plex_stroke_rat/',
                     help='Root directory of whole cell body segmentation')   
+parser.add_argument('--debug', required= False,
+                    metavar = "whether to debug",
+                    default = "T",type = str, 
+                    help='whether to debug ')      
 args = parser.parse_args()
 
 
@@ -193,7 +202,7 @@ def str2bool(str_input):
     bool_result = False if str_input.lower() in ["f",'false','0',"no",'n'] else True
     return bool_result
 
-def Write_FeatureTable (Read_img_file_Loc, maskfileName, Write_img_file_Loc = None, MaskType = 'bbox' ,
+def Write_FeatureTable (Read_img_file_Loc, maskfileName, Write_img_file_Loc = None, MaskType = 'bbox' ,ftable=None,
                         display_downscaleRate = 1, seedSize = 1, saveVis = False, mirror_y = True,erosion_px=0,
                         wholeCellDir = None, CHNDEF = '' ,imadjust = False):
     ''' 
@@ -209,6 +218,8 @@ def Write_FeatureTable (Read_img_file_Loc, maskfileName, Write_img_file_Loc = No
             ['ID', 'centroid_x', 'centroid_y', 'xmin', 'ymin', 'xmax', 'ymax']        
         [maskfileName = MaskLabel.out] full path name of labeled image 
             same size with image, delimited=','    
+        [ftable] user defined feature table, if None, automatically generated intrinsic feature by mask
+            ftable must have the columns name "biomarker"
 
         [display_downscaleRate]  int
             only open to "mask" option        
@@ -251,7 +262,7 @@ def Write_FeatureTable (Read_img_file_Loc, maskfileName, Write_img_file_Loc = No
             biomarkerName = DatesetDef_csv["biomarker"][i]                   
             Image.set('biomarker',biomarkerName) 
             FileName = SubElement(Image, 'FileName')
-            FileName.set("CHNName", DatesetDef_csv["CHNName"][i])
+            FileName.set("CHNName", DatesetDef_csv["biomarker"][i])
             FileName.text = DatesetDef_csv["filename"][i]
 
     datasetName = os.path.basename(CHNDEF).split('.')[0]  # storage the name to extract dataset name 
@@ -268,6 +279,10 @@ def Write_FeatureTable (Read_img_file_Loc, maskfileName, Write_img_file_Loc = No
     downscales_shape = image_downscaled_temp.shape        
     print ( "image.shape  = ", image_shape)
     print ( "downscales_shape.shape  = ", downscales_shape)
+
+    ''' OptionaL'''
+    if ftable is not None:
+        ftable_csv = pd.read_csv(ftable)
 
     '''Load bbox (.txt) or mask ('.out') to write centroids '''
 
@@ -364,8 +379,6 @@ def Write_FeatureTable (Read_img_file_Loc, maskfileName, Write_img_file_Loc = No
             hf.close()
 
         '''  Generate AssociateFtable'''
-        # maskBinName = os.path.join (Write_img_file_Loc , '[DAPI]Segmentation_Mask.bin' )
-        # save_mask2bin (maskBinName , label_image)
             
         obj_props = skimage.measure.regionprops (label_image)
         NumOfObj = len(obj_props)        
@@ -450,10 +463,7 @@ def Write_FeatureTable (Read_img_file_Loc, maskfileName, Write_img_file_Loc = No
             print ("imreadName = ",os.path.join( Read_img_file_Loc, imreadName))
             with tiff.TiffFile(os.path.join( Read_img_file_Loc, imreadName)) as tif:
                 image = tif.asarray(memmap=False)            
-            # saveImageName = Image.get('Celltype') + "_" + 
-            #                 Image.get('CellSegmentation') + "_" + 
-            #                 Image.get('biomarker') +"_" 
-            #                 + ".tif" 
+
             saveImageName = "[" + Image.get('biomarker')  + "].tif" 
             ''' Low quality Image for visualization  '''
             if saveVis == True:     
@@ -473,36 +483,42 @@ def Write_FeatureTable (Read_img_file_Loc, maskfileName, Write_img_file_Loc = No
                     print (" Save downscaled Images! " )
 
             ''' Storage Intrinsic features '''
-            Avg_intensity_ls = []
-            if MaskType == 'bbox':
-                print ("Computing biomarker Avg and Sum")
-                
-                obj_i_ls = [ i for i in range(0,NumOfObj) ]
-                def cal_avg_intensity(i):
-                    # print (bbox_table["xmin"][i],bbox_table["xmax"][i],bbox_table["ymin"][i],bbox_table["ymax"][i] )
+            # import pdb;pdb.set_trace()
 
-                    y_min = int( np.array( [bbox_table["ymin"][i] + erosion_px,bbox_table["ymax"][i]- erosion_px]). min() )
-                    y_max = int( np.array( [bbox_table["ymin"][i] + erosion_px,bbox_table["ymax"][i]- erosion_px]). max() )
-                    x_min = int( np.array( [bbox_table["xmin"][i] + erosion_px,bbox_table["xmax"][i]- erosion_px]). min() )
-                    x_max = int( np.array( [bbox_table["xmin"][i] + erosion_px,bbox_table["xmax"][i]- erosion_px]). max() )
-                    intensity_image_cropped  = image[ y_min : y_max  ,
-                                                      x_min: x_max  ] 
-                    # Tol_intensity_ls[i] = intensity_image_cropped.sum()
-                    return np.mean (intensity_image_cropped)
-                Avg_intensity_ls = [cal_avg_intensity(i) for i in obj_i_ls]
-                Avg_intensity_ls = np.array(Avg_intensity_ls)
+            if ftable is not None and (biomarker) in ftable_csv.keys():      
+                Featuretable[(biomarker) ]  = ftable_csv[(biomarker) ]                
+                print ("Channel",(biomarker)," used user defined features")
+            else:
+                Avg_intensity_ls = []
+                if MaskType == 'bbox':
+                    print ("Computing biomarker Avg and Sum")
+                    
+                    obj_i_ls = [ i for i in range(0,NumOfObj) ]
+                    def cal_avg_intensity(i):
+                        # print (bbox_table["xmin"][i],bbox_table["xmax"][i],bbox_table["ymin"][i],bbox_table["ymax"][i] )
 
-            elif MaskType == 'mask':
-                print ("Computing biomarker Avg and Sum")
-                intensity_image_ls = skimage.measure.regionprops_table (label_image,intensity_image = image,
-                                    properties=["intensity_image"] )["intensity_image"]
-                Avg_intensity_ls = [np.mean(i) for i in intensity_image_ls]
-                Avg_intensity_ls = np.array(Avg_intensity_ls)        
+                        y_min = int( np.array( [bbox_table["ymin"][i] + erosion_px,bbox_table["ymax"][i]- erosion_px]). min() )
+                        y_max = int( np.array( [bbox_table["ymin"][i] + erosion_px,bbox_table["ymax"][i]- erosion_px]). max() )
+                        x_min = int( np.array( [bbox_table["xmin"][i] + erosion_px,bbox_table["xmax"][i]- erosion_px]). min() )
+                        x_max = int( np.array( [bbox_table["xmin"][i] + erosion_px,bbox_table["xmax"][i]- erosion_px]). max() )
+                        intensity_image_cropped  = image[ y_min : y_max  ,
+                                                        x_min: x_max  ] 
+                        # Tol_intensity_ls[i] = intensity_image_cropped.sum()
+                        return np.mean (intensity_image_cropped)
+                    Avg_intensity_ls = [cal_avg_intensity(i) for i in obj_i_ls]
+                    Avg_intensity_ls = np.array(Avg_intensity_ls)
 
-            Featuretable[(biomarker) ] = Avg_intensity_ls
-            AssociativeFtable[(biomarker) ] = Avg_intensity_ls
-            # Featuretable[(biomarker +'__Avg') ] = Avg_intensity_ls
-            # Featuretable[(biomarker +'__Sum') ] = Tol_intensity_ls
+                elif MaskType == 'mask':
+                    print ("Computing biomarker Avg and Sum")
+                    intensity_image_ls = skimage.measure.regionprops_table (label_image,intensity_image = image,
+                                        properties=["intensity_image"] )["intensity_image"]
+                    Avg_intensity_ls = [np.mean(i) for i in intensity_image_ls]
+                    Avg_intensity_ls = np.array(Avg_intensity_ls)        
+
+                Featuretable[(biomarker) ] = Avg_intensity_ls
+                AssociativeFtable[(biomarker) ] = Avg_intensity_ls
+                # Featuretable[(biomarker +'__Avg') ] = Avg_intensity_ls
+                # Featuretable[(biomarker +'__Sum') ] = Tol_intensity_ls
 
     '''Write Associative Feature table and Feature Table into csv....... for futher analysis /ICE '''
       
@@ -821,10 +837,11 @@ if __name__== "__main__":
     else:
         DatesetDef_path =  args.CHNDEF
 
-    print ("** args.nuclearMaskDir = ", args.nuclearMaskDir)
+    print ("** args.MaskDir = ", args.MaskDir)
     featureTable_FName, AssociativeFtable_FName = Write_FeatureTable ( Read_img_file_Loc       = args.INPUT_DIR , 
-                                                    maskfileName            = args.nuclearMaskDir  ,
+                                                    maskfileName            = args.MaskDir  ,
                                                     Write_img_file_Loc      = args.OUTPUT_DIR,
+                                                    ftable                  = args.ftable,
                                                     MaskType                = mask_type,
                                                     display_downscaleRate   = args.downscaleRate,
                                                     seedSize                = args.seedSize,
