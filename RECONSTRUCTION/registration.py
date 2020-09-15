@@ -6,10 +6,13 @@ xiaoyang.rebecca.li@gmail.com
 
 --- inspired  from ---
 # https://github.com/scikit-image/skimage-tutorials/blob/master/lectures/adv3_panorama-stitching.ipynb
+
 Improvements compared to above 
-1) featureExtract_tiled (specifically for texture based large scale images)
-2) support multiprocess & single thread
-3) reuse of extracted feature in first rounds to the rest
+1) Feasibility to run on large image 
+2) Dramatically improve alignment accuracy for texture based images by tile-based keypoint detection
+3) Support multiprocess acceleration & single thread by tile-based keypoint extracting and matcching
+4) Auto-evaluation of the result and self-correction for artificall error (local fold)
+
 
 --- conda packages ---
 conda install -c conda-forge scikit-image \
@@ -20,6 +23,7 @@ conda install scikit-learn \
     -i [inputPath] \
     -o [outputPath]
 '''
+
 
 import os
 import re
@@ -47,31 +51,6 @@ import tiled_mp_fcts as mpfcts
 import vis_fcts as visfcts
 from ransac_tile import ransac_tile
 
-#import matplotlib.pyplot as plt
-
-
-#%%
-def log(text, array=None):
-    """Prints a text message. And, optionally, if a Numpy array is provided it
-    prints it's shape, min, and max values.
-    """
-    if array is not None:
-        text = text.ljust(25)
-        if type(array) == dict:
-            text += ("dictionary len = " + len(array))
-            for key in list(array.keys()):
-                item = array[key]
-                text += (" key = " + key + " \titem.shape= " + item.shape)
-                text += (" min: {:10.5f}  max: {:10.5f}".format(item.min(), item.max()))
-        else:
-            text = text.ljust(25)
-            text += ("shape: {:20}  ".format(str(array.shape)))
-            if array.size:
-                text += ("min: {:10.5f}  max: {:10.5f}".format(array.min(), array.max()))
-            else:
-                text += ("min: {:10}  max: {:10}".exiformat("", ""))
-            text += "  {}".format(array.dtype)
-    print(text)
 
 
 class Paras(object):
@@ -107,6 +86,14 @@ class Paras(object):
 
     def set_tile_shape(self, tile_shape):
         self.tile_shape = tile_shape
+    def set_ck_shift(self, ck_shift):
+        self.ck_shift = ck_shift
+    def set_crop_overlap(self, crop_overlap):
+        self.crop_overlap = crop_overlap
+    def set_residual_threshold(self, residual_threshold):
+        self.residual_threshold = residual_threshold
+    def set_min_samples(self, min_samples):
+        self.min_samples = min_samples        
 
     def display(self):
         print("============================\n")
@@ -127,7 +114,7 @@ class Paras(object):
         print("\tcrop_overlap = ", self.crop_overlap)
         print("\tkeypoint_dir = ", self.keypoint_dir)
         print("\tdemo = ", self.demo)
-        print("\tbgBoost = ", self.bootstrap)
+        print("\tbsBoost = ", self.bootstrap)
         print("\timadjust = ", self.imadjust)
 
 def spl_tiled_data (data, tileRange_ls ,paras):
@@ -150,7 +137,6 @@ def spl_tiled_data (data, tileRange_ls ,paras):
             spl_tile_ls.append(ids_bin_kep)    
     return  spl_tile_ls,spl_tile_dic
 
-
 def mini_register(target,source,paras,
                   keypoints0=None,descriptors0 =None,keypoints1 = None,descriptors1 = None):
     print ("\n#### mini_register")   
@@ -160,15 +146,15 @@ def mini_register(target,source,paras,
     inliers = None
     src = np.zeros((0,2))
     dst = np.zeros((0,2))
-    exam_tileRange_ls    = visfcts.crop_tiles(  ( target.shape[0],target.shape[1] ),
+    exam_tileRange_ls    = vis_fcts.crop_tiles(  ( target.shape[0],target.shape[1] ),
                                               ( int(paras.tile_shape[0]/2), int(paras.tile_shape[1]/2)),
                                                    paras.crop_overlap)  
     if keypoints0 is None or keypoints1 is None :        
-        keypoints0, descriptors0 = mpfcts.featureExtract_tiled(source, paras, exam_tileRange_ls)  # keypoints0.max(axis=1)
-        keypoints1, descriptors1 = mpfcts.featureExtract_tiled(target, paras, exam_tileRange_ls)  # keypoints0.max(axis=1)
+        keypoints0, descriptors0 = tiled_fcts.featureExtract_tiled(source, paras, exam_tileRange_ls)  # keypoints0.max(axis=1)
+        keypoints1, descriptors1 = tiled_fcts.featureExtract_tiled(target, paras, exam_tileRange_ls)  # keypoints0.max(axis=1)
 
     if keypoints0.shape[0] > paras.min_samples and  keypoints1.shape[0] > paras.min_samples :
-        src,dst =  mpfcts.match_descriptors_tiled(keypoints0,descriptors0,keypoints1,descriptors1,
+        src,dst =  tiled_fcts.match_descriptors_tiled(keypoints0,descriptors0,keypoints1,descriptors1,
                                       target.shape, exam_tileRange_ls ,
                                       ck_shift = paras.ck_shift)          
     print ("Matched keypoins = ", src.shape[0] )          
@@ -231,13 +217,13 @@ def registrationORB_tiled(targets, sources, paras, output_dir,
     target0 = img_as_ubyte(target0) # if input_type is "8bit" else target0
     source0 = img_as_ubyte(source0) # if input_type is "8bit" else source0
 
-    target0 = visfcts.adjust_image (target0) if imadjust is True  else target0
-    source0 = visfcts.adjust_image (source0) if imadjust is True else source0
+    target0 = vis_fcts.adjust_image (target0) if imadjust is True  else target0
+    source0 = vis_fcts.adjust_image (source0) if imadjust is True else source0
     paras.target_shape = ( target0.shape[0],target0.shape[1] )
     
     paras.display()
     target0_mean = target0.mean()
-    source0 = visfcts.check_shape(source0,paras.target_shape)                        
+    source0 = vis_fcts.check_shape(source0,paras.target_shape)                        
 
     t_8bit = time.time()
     
@@ -250,7 +236,7 @@ def registrationORB_tiled(targets, sources, paras, output_dir,
     img_rows = int(target0.shape[0])
     img_cols = int(target0.shape[1])                    
 
-    tileRange_ls    = visfcts.crop_tiles(  ( img_rows,img_cols ),
+    tileRange_ls    = vis_fcts.crop_tiles(  ( img_rows,img_cols ),
                                            ( tile_width, tile_width),
                                            paras.crop_overlap)  
     paras.tiles_numbers = len(tileRange_ls)
@@ -260,11 +246,11 @@ def registrationORB_tiled(targets, sources, paras, output_dir,
         print("number of the tiles = ", paras.tiles_numbers)
         print("tileRange_ls[0] = ", tileRange_ls[0] )
 
-    # EXTRACT KEYPOINTS
+    ''' 1.1.  EXTRACT KEYPOINTS '''
     if paras.keypoint_dir == None:
-        keypoints0, descriptors0 = mpfcts.featureExtract_tiled(source0, paras, tileRange_ls)  # keypoints0.max(axis=1)
+        keypoints0, descriptors0 = tiled_fcts.featureExtract_tiled(source0, paras, tileRange_ls)  # keypoints0.max(axis=1)
         if keypoints1 is None or descriptors1 is None:  # need to create featureExtraction for target, else read the created one from input
-            keypoints1, descriptors1 = mpfcts.featureExtract_tiled(target0, paras, tileRange_ls)
+            keypoints1, descriptors1 = tiled_fcts.featureExtract_tiled(target0, paras, tileRange_ls)
         
         if paras.demo ==True:
             np.save( os.path.join ( output_dir, source0_key.split(".")[0] + "_keypoints0.npy"),keypoints0)
@@ -283,14 +269,16 @@ def registrationORB_tiled(targets, sources, paras, output_dir,
     t_featureExtract_tiled = time.time()
     print("[Timer] featureExtract tiled used time (h) =", str((t_featureExtract_tiled - t_8bit) / 3600))
     
-    # Match descriptors between target and source image
+    ''' 1.2 Match descriptors between target and source image '''
+    # Reorderded keypoints acoording to the matching streateger by descriptors
     if paras.multiprocess == False:
-        src,dst =  mpfcts.match_descriptors_tiled(keypoints0,descriptors0,
+        src,dst =  tiled_fcts.match_descriptors_tiled(keypoints0,descriptors0,
                                           keypoints1,descriptors1, 
                                           paras.target_shape, tileRange_ls ,
                                           ck_shift = paras.ck_shift)
+
     else:
-        src,dst =  mpfcts.transfromest_tiled (keypoints0,descriptors0,
+        src,dst =  tiled_fcts.transfromest_tiled (keypoints0,descriptors0,
                                           keypoints1,descriptors1, 
                                           paras, tileRange_ls ,
                                           ck_shift = paras.ck_shift)
@@ -298,8 +286,8 @@ def registrationORB_tiled(targets, sources, paras, output_dir,
 
     print ("num of matched desciptors =", len(src[:,0]))
 
-    #%%   ''' 2. Transform estimation ''' 
-    exam_tileRange_ls    = visfcts.crop_tiles(  ( img_rows,img_cols ),
+    ''' 2. Transform estimation ''' 
+    exam_tileRange_ls    = vis_fcts.crop_tiles(  ( img_rows,img_cols ),
                                                 ( int( tile_height/2), int( tile_width/2)))  
     spl_tile_ls, spl_tile_dic = spl_tiled_data ( (src, dst) , exam_tileRange_ls, paras)
     print ("Ransac_tile: remove outliers" ) 
@@ -331,16 +319,16 @@ def registrationORB_tiled(targets, sources, paras, output_dir,
             source = tif.asarray(memmap=False)              
         source = rgb2gray(source) if source.ndim == 3 else source               # uint16
         
-        source = visfcts.check_shape(source,paras.target_shape)                        
+        source = vis_fcts.check_shape(source,paras.target_shape)                # make sure the source image is the same size to target      
         source_warped = warp(source, inverse_map = model_robust01.inverse, 
                                  output_shape = paras.target_shape)             # float64
-                             
-        # rerun the registration for bootstrap regions        
-        if s_i == 0:                                      
+
+        '''evaluate the initial registration result '''
+        if (s_i == 0 and bootstrap==True) or save_vis == True:                                      
             # merge diff regions
-            __, inital_diff,binary_target,error,__ = visfcts.eval_draw_diff ( img_as_ubyte(target0),                                                            
+            __, inital_diff,binary_target,error,__ = vis_fcts.eval_draw_diff ( img_as_ubyte(target0),                                                            
                                                                               img_as_ubyte(source_warped) )                   
-            bgBoost_tileRange_ls = []
+            bsBoost_tileRange_ls = []
             for tileRange_key in spl_tile_dic.keys() :
                 tileRange = exam_tileRange_ls[tileRange_key]            #exam tile range (small)
                 spl_tile =  spl_tile_dic[tileRange_key]
@@ -355,20 +343,23 @@ def registrationORB_tiled(targets, sources, paras, output_dir,
                 crop_error_rate = crop_inital_diff.sum()/crop_binary_target.sum()* 100 
                 if ( crop_target0.mean() > target0_mean/4 and  crop_error_rate> 1.2 and  inlier_rate < 0.4 and
                       crop_inital_diff.sum() >  ( paras.tile_shape[0] *paras.tile_shape[1]/64 ) ):
-                    bgBoost_tileRange_ls.append(tileRange)                                    
-            print ("bgBoost_tileRange_ls=",len(bgBoost_tileRange_ls))
+                    bsBoost_tileRange_ls.append(tileRange)                                    
+            print ("bsBoost_tileRange_ls=",len(bsBoost_tileRange_ls))
                         
-            diff_label_final = mpfcts. merge_diff_mask ( bgBoost_tileRange_ls, inital_diff,paras)
+            diff_label_final = tiled_fcts. merge_diff_mask ( bsBoost_tileRange_ls, inital_diff,paras)
             
             if save_vis == True:                         
-                vis_diff =  visfcts.differenceVis (inital_diff ,dst, inliers, bgBoost_tileRange_ls, diff_label_final )                        
+                vis_diff =  vis_fcts.differenceVis (inital_diff ,dst, inliers, bsBoost_tileRange_ls, diff_label_final )                        
                 print (" Before : error:",error)      
                 vis_diff_resized = resize(img_as_ubyte(vis_diff), (vis_diff.shape[0]  // 2 , vis_diff.shape[1] // 2) ,
                                                         mode = "constant")
                 io.imsave(os.path.join(output_dir, source_key.split(".")[0] + "-BeforeErr"+ '%.1f'%error+"%_diffVis.jpg"),
-                            vis_diff_resized )                   
-                                                       
+                            vis_diff_resized )        
+
+        '''rerun the registration for bootstrap regions    '''    
+
         if diff_label_final.max() > 0 and bootstrap == True:            
+
             for diff_label_obj in measure.regionprops(diff_label_final): 
                 mismatch_id = diff_label_obj.label
                 tileRange = diff_label_obj.bbox
@@ -419,7 +410,7 @@ def registrationORB_tiled(targets, sources, paras, output_dir,
                     ## fill with the new one
                     source_warped[ ck_tileRange[0]:ck_tileRange[2],       
                                    ck_tileRange[1]:ck_tileRange[3]] += source_warped_tile*fill_mask_tile
-            
+
         print ( "source_warped.type= ", source_warped.dtype)
         t_ransac = time.time()
 
@@ -441,7 +432,7 @@ def registrationORB_tiled(targets, sources, paras, output_dir,
             
             ########## save vis ############
             print("###########save vis")     
-            vis, binary_diff,__,error,__= visfcts.eval_draw_diff (img_as_ubyte(target0),                                                            
+            vis, binary_diff,__,error,__= vis_fcts.eval_draw_diff (img_as_ubyte(target0),                                                            
                                                         img_as_ubyte(source_warped))              
             print (" After : error:",error)                    
             vis_resized = resize(img_as_ubyte(vis), (vis.shape[0] // 2, vis.shape[1] // 2),
@@ -449,11 +440,11 @@ def registrationORB_tiled(targets, sources, paras, output_dir,
             io.imsave(os.path.join(output_dir, source_key.split(".")[0] + "_registeredVis.jpg"),
                          vis_resized)
             if bootstrap == False:
-                vis_diff =  visfcts.differenceVis (binary_diff ,dst, inliers,
+                vis_diff =  vis_fcts.differenceVis (binary_diff ,dst, inliers,
                                            tileRange_ls,diff_label_final)
             else:                
-                vis_diff =  visfcts.differenceVis (binary_diff ,dst, inliers,
-                                           bgBoost_tileRange_ls,diff_label_final)
+                vis_diff =  vis_fcts.differenceVis (binary_diff ,dst, inliers,
+                                           bsBoost_tileRange_ls,diff_label_final)
                 
             vis_diff_resized = resize(img_as_ubyte(vis_diff), (vis.shape[0]  // 2 , vis.shape[1] // 2) ,
                                                     mode = "constant")
@@ -469,13 +460,16 @@ def registrationORB_tiled(targets, sources, paras, output_dir,
 
 def registration (input_dir,output_dir,target_round = "R2", imadjust = True,
                   multiprocess = True, keypoint_dir = None,bootstrap =True,
-                  demo = False , tiling = "1000,1000" ,nKeypoint=  300000):
-
+                  demo = False , tiling = "1000,1000" ,nKeypoint=  300000, 
+                  ck_shift = 100, crop_overlap =10,residual_threshold =5,min_samples =5):
     # Parameters
     print("Reading Parameteres:========")
     paras = Paras()
     paras.set_n_keypoints(nKeypoint)
-    # paras.set_max_trials(args.maxtrials)
+    paras.set_ck_shift(ck_shift)
+    paras.set_crop_overlap(crop_overlap)
+    paras.set_min_samples(min_samples)
+    paras.set_residual_threshold(residual_threshold)
 
     paras.multiprocess  = False if str(multiprocess).lower() in ["f", "0", "false"] else multiprocess
     paras.keypoint_dir  = keypoint_dir
@@ -606,6 +600,7 @@ def main():
                         help='Path to the directory to save output images')
     parser.add_argument('-nk', '--nKeypoint', required=False, default=300000, type=int,
                         help=" nKeypoint ")
+
     parser.add_argument('-kp_path', '--keypoint_dir', 
                         default= None, required=False,
                         help='Path to the directory to read the extracted keypoins')
@@ -619,18 +614,34 @@ def main():
                         help="keyword for target round")        
     parser.add_argument('-t', '--tiling', required=False, default="1000,1000", type=str,
                         help=" 'tiling_r, tilling_r' or '[]' or None, for 'user specified tiling shape', 'no tilling',or default ")
-
+    parser.add_argument( '--ck_shift', required=False, default=100, type=int,
+                        help=" check window dilation width for seaching robust keypoint")
+    parser.add_argument( '--crop_overlap', required=False, default=10, type=int,
+                        help=" check window dilation width for seaching robust keypoint")
+    parser.add_argument( '--residual_threshold', required=False, default=5, type=int,
+                        help=" residual_threshold for ransac")
+    parser.add_argument( '--min_samples', required=False, default=5, type=int,
+                        help=" min_samples for ransac")
+                        
     args = parser.parse_args()
     #%%
     tic = time.time()
     ############  
 
-    #    target_round =  #"R2"
-
-    registration (args.input_dir,args.output_dir,      # only those 2 are necessary
-                  args.targetRound,args.imadjust,
-                  args.multiprocess, args.keypoint_dir, args.bootstrap,
-                  args.demo,  args.tiling ,args. nKeypoint                 )
+    registration (input_dir  = args.input_dir, output_dir = args.output_dir, # only those 2 are necessary
+                  target_round          = args.targetRound,      
+                  imadjust              = args.imadjust,   
+                  multiprocess          = args.multiprocess, 
+                  keypoint_dir          = args.keypoint_dir, 
+                  bootstrap             = args.bootstrap,
+                  demo                  = args.demo,  
+                  tiling                = args.tiling ,
+                  nKeypoint             = args.nKeypoint,
+                  ck_shift              = args. ck_shift, 
+                  crop_overlap          = args. crop_overlap,
+                  residual_threshold    = args.residual_threshold,
+                  min_samples           = args.min_samples
+                  )
 
     toc = time.time()
     print("total time is (h) =", str((toc - tic) / 3600))
