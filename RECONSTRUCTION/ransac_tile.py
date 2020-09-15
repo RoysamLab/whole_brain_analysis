@@ -51,6 +51,10 @@ def _dynamic_max_trials(n_inliers, n_samples, min_samples, probability):
 
 
 def random_select_tile (spl_tile_ls,min_samples, crucial_id_tile_ls = [] ):
+    '''
+    Our improvement of ransac transformation estimation to texture image:
+    
+    '''
     tile_select_ratio = int( np.ceil( min_samples/ len(spl_tile_ls)) )
     crucial_candidates = np.array([],dtype= np.int)  
     
@@ -267,44 +271,6 @@ def ransac_tile(data, model_class, min_samples, residual_threshold,
             if verbose is True:
                 print("-iter: ", num_trials, "spl_idxs=", spl_idxs,
                   "sample_inlier_num=", '%.2f'%( best_inlier_num/len(best_inliers)))
-
-#            '''  ### local optimal selection  increase the threshold for K times '''           
-#            thre_multiplier = 20
-#            K = 1000
-#            local_residual_threshold = residual_threshold * thre_multiplier
-#            det_thres = ( local_residual_threshold - residual_threshold ) / ( K -1)
-#
-#            local_sample_model_residuals = np.abs(best_model.residuals(*data))
-#            # consensus set / inliers
-#            base_inliers = local_sample_model_residuals < local_residual_threshold     
-#            data_base_inliers = [d[base_inliers] for d in data]
-#
-#            local_min_samples = int( min (base_inliers.sum()/2,10 ) )  
-#            thres_iter = local_residual_threshold                              # initalize the threshold 
-#
-#            for r in range (K): # inner loop)            
-#                if len (data_base_inliers) > local_min_samples : 
-#                    local_spl_idxs = random_state.choice(len(data_base_inliers),   
-#                                                     local_min_samples, replace=False)     
-#                    local_sample_data = [d[local_spl_idxs] for d in data_base_inliers] 
-#                    local_sample_model = model_class()    
-#                    local_sample_model.estimate(*local_sample_data)             # estimate model from samples
-#                    
-#                    iter_residuals = np.abs(local_sample_model.residuals(*data))
-#                    inlier_iter = iter_residuals < thres_iter   
-#                    temp_inlier_num = np.sum(inlier_iter)  
-#                    
-#                    iter_inlier_tile_perc = [inlier_iter[a].sum() / len(inlier_iter[a])  
-#                                for a in spl_tile_ls]                  # inlier list over all tiles
-#                    iter_inlier_tile_mean = np.mean(iter_inlier_tile_perc)   # non zero tiles
-#                    
-#                    if iter_inlier_tile_mean > best_inlier_tile_mean:
-#                        best_inlier_num = temp_inlier_num
-#                        best_model = local_sample_model
-#                        best_inliers = inlier_iter
-#                        print ("--- local updates to ",'%.2f'%(best_inlier_num/len(best_inliers)))
-#                    thres_iter = thres_iter - det_thres                       
-
                     
     # estimate final model using all inliers
     if best_inliers is not None:
