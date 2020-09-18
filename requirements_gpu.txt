@@ -1,0 +1,11 @@
+
+pandas
+scikit-image==0.16.1
+scikit-learn
+tensorflow-gpu==1.9.0
+cython
+
+progressbar2
+requests
+opencv-python
+keras==2

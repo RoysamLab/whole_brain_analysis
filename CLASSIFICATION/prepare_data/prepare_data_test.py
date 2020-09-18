@@ -85,7 +85,10 @@ def main(input_dir, bbxs_file, channel_names, output_dir, margin=5, crop_size=(5
     # read bbxs file
     assert os.path.isfile(bbxs_file), '{} not found!'.format(bbxs_file)
     # if file exist -> load
-    bbxs_table = pd.read_csv(bbxs_file, sep='\t')
+    if ".txt" in bbxs_file:
+        bbxs_table = pd.read_csv(bbxs_file, sep='\t')
+    else:   # .csv
+        bbxs_table = pd.read_csv(bbxs_file)[["ID","centroid_x","centroid_y",'xmin', 'ymin', 'xmax', 'ymax']]
     bbxs = bbxs_table[['xmin', 'ymin', 'xmax', 'ymax']].values
 
     # get images
@@ -132,6 +135,7 @@ def main(input_dir, bbxs_file, channel_names, output_dir, margin=5, crop_size=(5
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
+    # import pdb; pdb.set_trace()
     with h5py.File(os.path.join(output_dir, 'data.h5'), 'w') as f:
         f.create_dataset('X_test', data=X_test)
         f.create_dataset('Y_test', data=Y_test)

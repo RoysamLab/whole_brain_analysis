@@ -4,9 +4,10 @@ import subprocess
 # MATLABROOT = "C:\Program Files\MATLAB\R2018b"
 
 # create a new conda environment
-os.system('conda create -n brain python=3.6 --yes')
+# os.system('conda create -n brain python=3.6 --yes')
+
 # install required libraries
-cmds = ['source activate brain',
+cmds = ['conda activate brain',
         'pip install pandas',
         'conda install --yes scikit-learn',
         'conda install --yes -c conda-forge scikit-image=0.16.1',
@@ -18,6 +19,7 @@ cmds = ['source activate brain',
         'pip install requests',
         'pip install opencv-python',
         'pip install keras==2.2.0',
+        'pip install h5py',
         'pip install tqdm',
         'conda deactivate']
 subprocess.call(' && '.join(cmds), shell=True)

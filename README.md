@@ -30,9 +30,12 @@ The pipeline is supported for *Windows* and *Linux* with CUDA-enabled GPU and en
 - tensorflow-gpu==1.9.0
 - pycocotools
 - keras == 2.2.0
+- h5py
 
 `setup_env.py` creates a conda environment (`brain`) and installs the required libraries.
-
+```bash
+python setup_env.py
+```
 __Note:__ tensorflow-gpu library requires __CUDA toolkit 9.0__ and __cuDNN 7.0.5__. 
 You can follow the instructions from [here](https://github.com/easy-tensorflow/easy-tensorflow/tree/master/0_Setup_TensorFlow) to install the TensorFlow and dependencies.
 
