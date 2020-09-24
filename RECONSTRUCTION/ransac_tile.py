@@ -49,37 +49,68 @@ def _dynamic_max_trials(n_inliers, n_samples, min_samples, probability):
     return int(np.ceil(nom / denom))
 
 
+def hierarchy_shuffle(intervel_min = 10):
+    ''' Gurantee the selected ele's width is not less than 10 '''
 
 def random_select_tile (spl_tile_ls,min_samples, crucial_id_tile_ls = [] ):
     '''
     Our improvement of ransac transformation estimation to texture image:
+    hieracarchical selection:
     
+    2) select min_samples groups
+    3) select the element in each group
     '''
-    tile_select_ratio = int( np.ceil( min_samples/ len(spl_tile_ls)) )
-    crucial_candidates = np.array([],dtype= np.int)  
-    
-    must_candidates =  np.array([],dtype= np.int)  
-    # select the crucial_id_tile_ls first
-    if len(crucial_id_tile_ls ) > 0:
-        for c_ti in crucial_id_tile_ls:
-            spl_tile_idxs = spl_tile_ls[c_ti]
-            random.shuffle(spl_tile_idxs)   
-            must_candidates = np.concatenate( ( must_candidates,
-                                             spl_tile_idxs[:1] ),
-                                             axis=0 )# make sure the miss tile have keypoint to select   
-    
-    # gurantee each tile have one item to be select (uniform distribution)
-    for s_i , spl_tile_idxs in enumerate( spl_tile_ls ) :   
-        if s_i not in crucial_id_tile_ls:
-            random.shuffle(spl_tile_idxs)          
-            crucial_candidates = np.concatenate( ( crucial_candidates,
-                                                 spl_tile_idxs[:tile_select_ratio] ),
-                                                 axis=0 )# make sure the miss tile have keypoint to select                   
-    random.shuffle(crucial_candidates)
-    selected_candidates = np.concatenate( ( must_candidates, 
-                                            crucial_candidates[:min_samples-must_candidates.shape[0]]  ), 
-                                         axis =0)
+    # 
+    spl_tile_ls = [i for i in spl_tile_ls if  len(i)>0 ]
+    random.shuffle(spl_tile_ls)   
+    # tile_group_size = int( np.ceil( len(spl_tile_ls)/min_samples) )    # 
+    selected_candidates = []
+    # if len(crucial_id_tile_ls ) ==0 :
+    # ## First levelm select random tile
+    # random_tile_id = spl_tile_ls[]
+    # groups = np.split ( np.arange(len(spl_tile_ls)), tile_group_size)     # 1) arrange the big group of tiles, contrain ids
 
+    if min_samples <= len(spl_tile_ls):                             # selecte each one element in each tile
+        for group_i  in range ( min_samples ):                      # select first 4 tile ls in shuffled(spl_tile_ls)
+            selected_tile = spl_tile_ls[group_i]
+            selected_candidate = np.random.choice(selected_tile)
+            selected_candidates.append( selected_candidate )
+    else:                                                           # min_samples > len(spl_tile_ls)
+        max_ids_tile = int( np.ceil( min_samples/len(spl_tile_ls)) )
+        remain_cand_nums = min_samples
+        # import pdb;pdb.set_trace()
+        while remain_cand_nums > 0 :                    
+            for spl_tile in  spl_tile_ls:
+                random.shuffle(spl_tile)
+                selected_candidates += list( spl_tile[:max_ids_tile])
+                remain_cand_nums -= len(selected_candidates)
+         
+    return selected_candidates
+
+    # crucial_candidates = np.array([],dtype= np.int)  
+    
+    # must_candidates =  np.array([],dtype= np.int)  
+    # # select the crucial_id_tile_ls first, optional
+    # if len(crucial_id_tile_ls ) > 0:
+    #     for c_ti in crucial_id_tile_ls:
+    #         spl_tile_idxs = spl_tile_ls[c_ti]
+    #         random.shuffle(spl_tile_idxs)   
+    #         must_candidates = np.concatenate( ( must_candidates,
+    #                                          spl_tile_idxs[:1] ),
+    #                                          axis=0 )# make sure the miss tile have keypoint to select   
+    
+    # # gurantee each tile have one item to be select (uniform distribution)
+
+    # for s_i , spl_tile_idxs in enumerate( spl_tile_ls ) :   
+    #     if s_i not in crucial_id_tile_ls:
+    #         random.shuffle(spl_tile_idxs)          
+    #         crucial_candidates = np.concatenate( ( crucial_candidates,
+    #                                              spl_tile_idxs[:tile_select_ratio] ),
+    #                                              axis=0 )                 
+    # random.shuffle(crucial_candidates)
+    # selected_candidates = np.concatenate( ( must_candidates, 
+    #                                         crucial_candidates[:min_samples-must_candidates.shape[0]]  ), 
+    #                                      axis =0)
 
     return selected_candidates
 
@@ -202,13 +233,18 @@ def ransac_tile(data, model_class, min_samples, residual_threshold,
                          
     
     # for the first run use initial guess of inliers
+    # import pdb;pdb.set_trace()
+
     spl_idxs = (initial_inliers if initial_inliers is not None
                     else random_select_tile (spl_tile_ls, min_samples) )
   
     crucial_id_tile_ls = []
     for num_trials in range(max_trials):
         # do sample selection according data pairs
+        if verbose is True:
+            print("num_trials=",num_trials) 
         samples = [d[spl_idxs] for d in data]
+
         # for next iteration choose random sample set and be sure that no samples repeat
         spl_idxs = random_select_tile (spl_tile_ls, min_samples, crucial_id_tile_ls = crucial_id_tile_ls) 
         # optional check if random sample set is valid
@@ -276,7 +312,8 @@ def ransac_tile(data, model_class, min_samples, residual_threshold,
     if best_inliers is not None:
         # in case num(best_inliers) too large,  model.estimate run out of memory
         best_inliers_subset= np.zeros_like(best_inliers)
-        spl_idxs = random_select_tile (spl_tile_ls, min(best_inliers.sum(), min_samples*1000)) 
+        # import pdb;pdb.set_trace()
+        spl_idxs = random_select_tile (spl_tile_ls, min(best_inliers.sum(), min_samples*1000) ) 
         best_inliers_subset[spl_idxs] = True
         # select a random subset of inliers for each data array
         best_inliers_subset = best_inliers_subset* best_inliers
