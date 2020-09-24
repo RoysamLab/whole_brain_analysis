@@ -15,7 +15,7 @@ warnings.filterwarnings("ignore")
 import time
 
 def adjust_image (img):
-    p2, p98 = np.percentile(img, (2, 98))
+    p2, p98 = np.percentile(img, (0.02, 99.8))
     img = exposure.rescale_intensity(img, in_range=(p2, p98))          # Load over images
     return img
 
