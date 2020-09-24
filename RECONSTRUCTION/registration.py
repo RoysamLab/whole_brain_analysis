@@ -18,12 +18,24 @@ Improvements compared to above
 conda install -c conda-forge scikit-image \
 conda install scikit-learn \
 
---- e.g. ---
-&python registration.py \
+------ e.g. ------
+python registration.py \
     -i [inputPath] \
     -o [outputPath]
-'''
 
+---- debugging -----
+python registration.py \
+    -i [inputPath] \
+    -o [outputPath] \
+    --demo True
+# will generate keypoints, descriptors npy files and intermediate results, and resue it by: (will save time )
+
+python registration.py \
+    -i [inputPath] \
+    -o [outputPath] \
+    -keypoint_dir [outputPath] \
+    --demo True
+'''
 
 import os
 import re
@@ -47,11 +59,9 @@ warnings.filterwarnings("ignore")
 import argparse
 from sklearn.neighbors import DistanceMetric
 
-import tiled_mp_fcts as mpfcts
-import vis_fcts as visfcts
+import tiled_mp_fcts as tiled_fcts
+import vis_fcts as vis_fcts
 from ransac_tile import ransac_tile
-
-
 
 class Paras(object):
     def __init__(self):
@@ -77,23 +87,7 @@ class Paras(object):
         self.demo = False
         self.bootstrap = True
         self.imadjust = True
-
-    def set_n_keypoints(self, n_keypoints):
-        self.n_keypoints = n_keypoints
-
-    def set_max_trials(self, max_trials):
-        self.max_trials = max_trials
-
-    def set_tile_shape(self, tile_shape):
-        self.tile_shape = tile_shape
-    def set_ck_shift(self, ck_shift):
-        self.ck_shift = ck_shift
-    def set_crop_overlap(self, crop_overlap):
-        self.crop_overlap = crop_overlap
-    def set_residual_threshold(self, residual_threshold):
-        self.residual_threshold = residual_threshold
-    def set_min_samples(self, min_samples):
-        self.min_samples = min_samples        
+        self.pre_register = False
 
     def display(self):
         print("============================\n")
@@ -116,6 +110,7 @@ class Paras(object):
         print("\tdemo = ", self.demo)
         print("\tbsBoost = ", self.bootstrap)
         print("\timadjust = ", self.imadjust)
+        print("\pre_register = ", self.pre_register)
 
 def spl_tiled_data (data, tileRange_ls ,paras):
     spl_tile_ls = []
@@ -137,17 +132,41 @@ def spl_tiled_data (data, tileRange_ls ,paras):
             spl_tile_ls.append(ids_bin_kep)    
     return  spl_tile_ls,spl_tile_dic
 
+def local_register(target0,source0,paras):
+    orb = ORB(n_keypoints= paras.n_keypoints, fast_threshold=paras.fast_threshold)
+    # Detect keypoints in pano0
+    orb.detect_and_extract(source0)
+    keypoints0 = orb.keypoints
+    descriptors0 = orb.descriptors
+
+    orb.detect_and_extract(target0)
+    keypoints1 = orb.keypoints
+    descriptors1 = orb.descriptors
+
+    matches01 = match_descriptors(descriptors0, descriptors1, cross_check=True)
+    src = keypoints0[matches01[:, 0]][:, ::-1]
+    dst = keypoints1[matches01[:, 1]][:, ::-1]
+    model_robust01, inliers01 = ransac((src, dst), AffineTransform,
+                                                    min_samples         = paras.min_samples, 
+                                                    residual_threshold  = paras.residual_threshold,
+                                                    max_trials          = paras.max_trials,
+                                                    random_state        = paras.random_state,
+                                )      
+    print ("Local register:detect keypoints",descriptors0.shape[0], "matched",sum(matches01))
+    return model_robust01
 def mini_register(target,source,paras,
-                  keypoints0=None,descriptors0 =None,keypoints1 = None,descriptors1 = None):
+                  keypoints0=None,descriptors0 =None,keypoints1 = None,descriptors1 = None, ds_rate=2):
     print ("\n#### mini_register")   
-    print ( "target.type= ", target.dtype)
+    print ( "target.shape= ", target.shape)
     
     model_robust01 = None    # initailze to none
     inliers = None
     src = np.zeros((0,2))
     dst = np.zeros((0,2))
+    paras.display()
+    # define new tile ranges
     exam_tileRange_ls    = vis_fcts.crop_tiles(  ( target.shape[0],target.shape[1] ),
-                                              ( int(paras.tile_shape[0]/2), int(paras.tile_shape[1]/2)),
+                                              ( int(paras.tile_shape[0]/ds_rate), int(paras.tile_shape[1]/ds_rate)),
                                                    paras.crop_overlap)  
     if keypoints0 is None or keypoints1 is None :        
         keypoints0, descriptors0 = tiled_fcts.featureExtract_tiled(source, paras, exam_tileRange_ls)  # keypoints0.max(axis=1)
@@ -166,7 +185,8 @@ def mini_register(target,source,paras,
                                                     residual_threshold  = paras.residual_threshold,
                                                     max_trials          = paras.max_trials,
                                                     random_state        = paras.random_state,
-                                                    spl_tile_ls = spl_tile_ls)      
+                                                    spl_tile_ls         = spl_tile_ls,
+                                                    verbose             = paras.demo)      
         
     if inliers is not None:
         print ("\t min-inliers%  =" , ( inliers.sum()/len(inliers)) *100 )
@@ -186,11 +206,10 @@ def select_keypointsInMask(kp, binmask):
 
 def registrationORB_tiled(targets, sources, paras, output_dir, 
                           save_target=True, 
-                          keypoints1=None, descriptors1=None, imadjust = False, verbose =0):    
+                          keypoints1=None, descriptors1=None, pre_register=False, verbose =0):    
     t_0 = time.time()    
     target0 = []  # only use target 0 and source 0 for keypoint extraction
     source0 = []
-    print("imadjust =",imadjust)    
     # READING IMAGES
     for key_id, t_key in enumerate( sorted ( targets.keys() )) :                
         if key_id == 0:
@@ -199,14 +218,14 @@ def registrationORB_tiled(targets, sources, paras, output_dir,
 
             input_type = target0.dtype
             target0 = rgb2gray(target0) if target0.ndim == 3 else target0
-            print("Process ", t_key, " as target0", "target0.shape = ", target0.shape)
+            # print("Process ", t_key, " as target0", "target0.shape = ", target0.shape)
             target0_key = t_key
     for key_id, s_key in enumerate( sorted ( sources.keys() )) :
         if key_id == 0:
             with tiff.TiffFile(sources[s_key]) as tif:
                 source0 = tif.asarray(memmap=True)            
             source0 = rgb2gray(source0) if source0.ndim == 3 else source0
-            print("Process ", s_key, " as source0", "source0.shape =", source0.shape)
+            # print("Process ", s_key, " as source0", "source0.shape =", source0.shape)
             source0_key = s_key
 
     if target0 is [] or source0 is []:
@@ -217,8 +236,8 @@ def registrationORB_tiled(targets, sources, paras, output_dir,
     target0 = img_as_ubyte(target0) # if input_type is "8bit" else target0
     source0 = img_as_ubyte(source0) # if input_type is "8bit" else source0
 
-    target0 = vis_fcts.adjust_image (target0) if imadjust is True  else target0
-    source0 = vis_fcts.adjust_image (source0) if imadjust is True else source0
+    target0 = vis_fcts.adjust_image (target0) if paras.imadjust is True  else target0
+    source0 = vis_fcts.adjust_image (source0) if paras.imadjust is True else source0
     paras.target_shape = ( target0.shape[0],target0.shape[1] )
     
     paras.display()
@@ -245,6 +264,35 @@ def registrationORB_tiled(targets, sources, paras, output_dir,
         print ("tile_shape=" ,tile_shape)
         print("number of the tiles = ", paras.tiles_numbers)
         print("tileRange_ls[0] = ", tileRange_ls[0] )
+
+    ''' 0. Preregister '''
+
+    if paras.pre_register == True:   # precalculate the downscaled pregistration
+        ds_rate = 10
+        target_resized = resize(target0, (source0.shape[0] // ds_rate, source0.shape[1] // ds_rate),
+                       anti_aliasing=True)
+        source_resized = resize(source0, (source0.shape[0] // ds_rate, source0.shape[1] // ds_rate),
+                        anti_aliasing=False)
+        print ("DS shape=", source_resized.shape)
+        mini_paras = paras
+        mini_paras.target_shape =  target_resized.shape
+        mini_paras.tile_shape = ( int(paras.tile_shape[0]/ds_rate), int(paras.tile_shape[1]/ds_rate) ) 
+        mini_paras.ck_shift = int(paras.ck_shift/ds_rate)
+        mini_paras.crop_overlap = int(paras.crop_overlap/ds_rate)
+        mini_paras.n_keypoints = int(paras.n_keypoints/(ds_rate))
+
+        model_pre = local_register(target_resized,source_resized,mini_paras)    # extract the model inverse map from CHN0        
+
+        source0 = warp(source0, inverse_map = model_pre.inverse, 
+                                output_shape = paras.target_shape)   
+        if paras.demo:
+            # vis_pre, __,__,error,__ = vis_fcts.eval_draw_diff ( img_as_ubyte(target0),                                                            
+            #                                                img_as_ubyte(source0) )                   
+            # vis_diff_resized = resize(vis_pre, (source0.shape[0] // ds_rate, source0.shape[1] // ds_rate),
+            #                     anti_aliasing=False)
+            # print ("Pre-error=", '%.1f'%error)                    
+            io.imsave(os.path.join(output_dir,"-PreRegister"+ source0_key +".tif"),
+                        img_as_ubyte(source0) )        
 
     ''' 1.1.  EXTRACT KEYPOINTS '''
     if paras.keypoint_dir == None:
@@ -311,8 +359,8 @@ def registrationORB_tiled(targets, sources, paras, output_dir,
     if paras.demo == False:
         del src,dst,source0
         
-    if bootstrap == False:
-        del keypoints0, keypoints1, descriptors0,descriptors1
+    # if bootstrap == False:
+    #     del keypoints0, keypoints1, descriptors0,descriptors1
 
     for s_i, source_key in enumerate( sorted ( sources.keys() )) :
         with tiff.TiffFile(sources[source_key]) as tif:
@@ -320,6 +368,10 @@ def registrationORB_tiled(targets, sources, paras, output_dir,
         source = rgb2gray(source) if source.ndim == 3 else source               # uint16
         
         source = vis_fcts.check_shape(source,paras.target_shape)                # make sure the source image is the same size to target      
+        if paras.pre_register==True:
+            source = warp(source, inverse_map = model_pre.inverse, 
+                                 output_shape = paras.target_shape)             # float64
+
         source_warped = warp(source, inverse_map = model_robust01.inverse, 
                                  output_shape = paras.target_shape)             # float64
 
@@ -358,58 +410,58 @@ def registrationORB_tiled(targets, sources, paras, output_dir,
 
         '''rerun the registration for bootstrap regions    '''    
 
-        if diff_label_final.max() > 0 and bootstrap == True:            
-
-            for diff_label_obj in measure.regionprops(diff_label_final): 
-                mismatch_id = diff_label_obj.label
-                tileRange = diff_label_obj.bbox
-                ck_tileRange=  [ max( 0 , tileRange[0] - paras.ck_shift ), 
-                                 max( 0 , tileRange[1] - paras.ck_shift ),
-                                 min( int(paras.target_shape[0] ) -1, tileRange[2] + paras.ck_shift) , 
-                                 min( int(paras.target_shape[1] ) -1, tileRange[3] + paras.ck_shift) ]         # extract the labels of subpicious window from previous merged results
-                ck_tileRange_shape = ( ck_tileRange[2] - ck_tileRange[0], ck_tileRange[3] - ck_tileRange[1] )
-                
-                target_tile =  target0[ ck_tileRange[0]:ck_tileRange[2],   #i: i+crop_height
-                                        ck_tileRange[1]:ck_tileRange[3]]   #j: j + crop_width     # uint16                          
-                source_tile =  source[ ck_tileRange[0]:ck_tileRange[2],   #i: i+crop_height
-                                         ck_tileRange[1]:ck_tileRange[3]]   #j: j + crop_width     # uint16                
-                fill_mask_tile = diff_label_final[ ck_tileRange[0]:ck_tileRange[2],   #i: i+crop_height
-                                                   ck_tileRange[1]:ck_tileRange[3]]   #j: j + crop_width     # uint16
-                fill_mask_tile = (fill_mask_tile==mismatch_id)   # extrac the binmask tile
-                                
-                if s_i == 0:   # Only get models from target0 source 0 
-                    if reuse_kp == False:
-                        model_mini = mini_register(target_tile,source_tile,paras)    # extract the model inverse map from CHN0        
-                    else:
-                      
-                        # load global keypoints
-                        kp0_tile = select_keypointsInMask(keypoints0, (diff_label_final==mismatch_id))
-                        kp1_tile = select_keypointsInMask(keypoints1, (diff_label_final==mismatch_id))                   
-                        
-                        # convert to local kps
-                        kp0_crop = keypoints0[kp0_tile,:]
-                        kp1_crop = keypoints1[kp1_tile,:]
-                        kp0_crop = kp0_crop - np.tile([ck_tileRange[0], ck_tileRange[1]],
-                                                        (kp0_crop.shape[0], 1))           # add the crop coordinate shift
-                        kp1_crop = kp1_crop - np.tile([ck_tileRange[0], ck_tileRange[1]],
-                                                        (kp1_crop.shape[0], 1))           # add the crop coordinate shift
-                        model_mini = mini_register(target_tile,source_tile,paras , 
-                                                   kp0_crop,descriptors0[kp0_tile,:],
-                                                   kp1_crop,descriptors1[kp1_tile,:]  )    # extract the model inverse map from CHN0    
-                    model_mini_dic[mismatch_id] = model_mini     # save the bootstrap transform into dict
+        if bootstrap == True:            
+            if diff_label_final.max() > 0 :
+                for diff_label_obj in measure.regionprops(diff_label_final): 
+                    mismatch_id = diff_label_obj.label
+                    tileRange = diff_label_obj.bbox
+                    ck_tileRange=  [ max( 0 , tileRange[0] - paras.ck_shift ), 
+                                    max( 0 , tileRange[1] - paras.ck_shift ),
+                                    min( int(paras.target_shape[0] ) -1, tileRange[2] + paras.ck_shift) , 
+                                    min( int(paras.target_shape[1] ) -1, tileRange[3] + paras.ck_shift) ]         # extract the labels of subpicious window from previous merged results
+                    ck_tileRange_shape = ( ck_tileRange[2] - ck_tileRange[0], ck_tileRange[3] - ck_tileRange[1] )
                     
-                if model_mini_dic[mismatch_id]  is not None:  # only update when the model has been found                   
-                    ## clear the old registered result       
-                    source_warped[ ck_tileRange[0]:ck_tileRange[2],       
-                                   ck_tileRange[1]:ck_tileRange[3]] = source_warped[ ck_tileRange[0]:ck_tileRange[2],       
-                                                                                     ck_tileRange[1]:ck_tileRange[3]] *(1-fill_mask_tile)
-                    # wrap the whole image    
-                    source_warped_tile = warp( source_tile, 
-                                               inverse_map = model_mini_dic[mismatch_id].inverse, 
-                                               output_shape = ck_tileRange_shape)   
-                    ## fill with the new one
-                    source_warped[ ck_tileRange[0]:ck_tileRange[2],       
-                                   ck_tileRange[1]:ck_tileRange[3]] += source_warped_tile*fill_mask_tile
+                    target_tile =  target0[ ck_tileRange[0]:ck_tileRange[2],   #i: i+crop_height
+                                            ck_tileRange[1]:ck_tileRange[3]]   #j: j + crop_width     # uint16                          
+                    source_tile =  source[ ck_tileRange[0]:ck_tileRange[2],   #i: i+crop_height
+                                            ck_tileRange[1]:ck_tileRange[3]]   #j: j + crop_width     # uint16                
+                    fill_mask_tile = diff_label_final[ ck_tileRange[0]:ck_tileRange[2],   #i: i+crop_height
+                                                    ck_tileRange[1]:ck_tileRange[3]]   #j: j + crop_width     # uint16
+                    fill_mask_tile = (fill_mask_tile==mismatch_id)   # extrac the binmask tile
+                                    
+                    if s_i == 0:   # Only get models from target0 source 0 
+                        if reuse_kp == False:
+                            model_mini = mini_register(target_tile,source_tile,paras)    # extract the model inverse map from CHN0        
+                        else:
+                        
+                            # load global keypoints
+                            kp0_tile = select_keypointsInMask(keypoints0, (diff_label_final==mismatch_id))
+                            kp1_tile = select_keypointsInMask(keypoints1, (diff_label_final==mismatch_id))                   
+                            
+                            # convert to local kps
+                            kp0_crop = keypoints0[kp0_tile,:]
+                            kp1_crop = keypoints1[kp1_tile,:]
+                            kp0_crop = kp0_crop - np.tile([ck_tileRange[0], ck_tileRange[1]],
+                                                            (kp0_crop.shape[0], 1))           # add the crop coordinate shift
+                            kp1_crop = kp1_crop - np.tile([ck_tileRange[0], ck_tileRange[1]],
+                                                            (kp1_crop.shape[0], 1))           # add the crop coordinate shift
+                            model_mini = mini_register(target_tile,source_tile,paras , 
+                                                    kp0_crop,descriptors0[kp0_tile,:],
+                                                    kp1_crop,descriptors1[kp1_tile,:]  )    # extract the model inverse map from CHN0    
+                        model_mini_dic[mismatch_id] = model_mini     # save the bootstrap transform into dict
+                        
+                    if model_mini_dic[mismatch_id]  is not None:  # only update when the model has been found                   
+                        ## clear the old registered result       
+                        source_warped[ ck_tileRange[0]:ck_tileRange[2],       
+                                    ck_tileRange[1]:ck_tileRange[3]] = source_warped[ ck_tileRange[0]:ck_tileRange[2],       
+                                                                                        ck_tileRange[1]:ck_tileRange[3]] *(1-fill_mask_tile)
+                        # wrap the whole image    
+                        source_warped_tile = warp( source_tile, 
+                                                inverse_map = model_mini_dic[mismatch_id].inverse, 
+                                                output_shape = ck_tileRange_shape)   
+                        ## fill with the new one
+                        source_warped[ ck_tileRange[0]:ck_tileRange[2],       
+                                    ck_tileRange[1]:ck_tileRange[3]] += source_warped_tile*fill_mask_tile
 
         print ( "source_warped.type= ", source_warped.dtype)
         t_ransac = time.time()
@@ -457,31 +509,32 @@ def registrationORB_tiled(targets, sources, paras, output_dir,
 
     return keypoints1, descriptors1
 
-
 def registration (input_dir,output_dir,target_round = "R2", imadjust = True,
                   multiprocess = True, keypoint_dir = None,bootstrap =True,
                   demo = False , tiling = "1000,1000" ,nKeypoint=  300000, 
-                  ck_shift = 100, crop_overlap =10,residual_threshold =5,min_samples =5):
+                  ck_shift = 100, crop_overlap =10,residual_threshold =5,min_samples =5,pre_register = False):
     # Parameters
-    print("Reading Parameteres:========")
+    print("Setting Parameteres:========")
     paras = Paras()
-    paras.set_n_keypoints(nKeypoint)
-    paras.set_ck_shift(ck_shift)
-    paras.set_crop_overlap(crop_overlap)
-    paras.set_min_samples(min_samples)
-    paras.set_residual_threshold(residual_threshold)
+    paras.n_keypoints = nKeypoint
+    paras.ck_shift = (ck_shift)
+    paras.crop_overlap = crop_overlap
+    paras.min_samples = min_samples
+    paras.residual_threshold = residual_threshold
 
     paras.multiprocess  = False if str(multiprocess).lower() in ["f", "0", "false"] else multiprocess
     paras.keypoint_dir  = keypoint_dir
     paras.bootstrap     = str2bool(bootstrap)
     paras.demo          = str2bool(demo) 
     paras.imadjust      = str2bool(imadjust) 
+    paras.pre_register  = str2bool(pre_register)
 
+    # import pdb;pdb.set_trace()
+    # paras.display()
     if "," in tiling:
-        set_tile_shape = [int(s) for s in re.findall(r'\d+', tiling)]
-        paras.set_tile_shape(set_tile_shape)
+        paras.stile_shape = [int(s) for s in re.findall(r'\d+', tiling)]
     elif tiling == []:
-        paras.set_tile_shape([])  # no tiling, cautious might be extremely slow!
+        paras.tile_shape =[]  # no tiling, cautious might be extremely slow!
 
     if os.path.exists(output_dir) is False:
         os.mkdir(output_dir)           
@@ -493,8 +546,7 @@ def registration (input_dir,output_dir,target_round = "R2", imadjust = True,
     print ("Set_name=",Set_name)
     # the round that all other rounds are going to registered to !
 
-
-    if paras.demo is False:
+    if paras.demo == False:
         print("Run all channels")
         # get all the channel and round id
         channels_range = []
@@ -559,17 +611,16 @@ def registration (input_dir,output_dir,target_round = "R2", imadjust = True,
         if sr_i == 0:  # only need keypoint extraction for target for once
             keypoints1, descriptors1 = registrationORB_tiled(targets, sources, paras,                                                             
                                                             output_dir  = output_dir,
-
                                                             save_target = save_target,
-                                                            imadjust    = paras.imadjust 
                                                             )            
         else:
             _, _ = registrationORB_tiled(targets, sources, paras,
                                         output_dir = output_dir,
                                         save_target = save_target,
-                                        imadjust    = paras.imadjust ,
+
                                         keypoints1  = keypoints1,
-                                        descriptors1= descriptors1)
+                                        descriptors1= descriptors1,
+                                       )
 
         print("\nRegistrationORB function for round", source_round, " finished!\n====================\n")
 
@@ -610,6 +661,8 @@ def main():
                             help='whether to adjust the image for feature extraction')    
     parser.add_argument('--bootstrap', required=False, default = 'T',type = str, 
                             help='whether to adopt bootstrap to enhance registration')    
+    parser.add_argument('--pre_register', required=False, default = 'F',type = str, 
+                            help='whether to adopt pre-registration on downscaled image ')    
     parser.add_argument('--targetRound', required=False, default='R2', type=str,
                         help="keyword for target round")        
     parser.add_argument('-t', '--tiling', required=False, default="1000,1000", type=str,
@@ -640,7 +693,8 @@ def main():
                   ck_shift              = args. ck_shift, 
                   crop_overlap          = args. crop_overlap,
                   residual_threshold    = args.residual_threshold,
-                  min_samples           = args.min_samples
+                  min_samples           = args.min_samples,
+                  pre_register          = args.pre_register,
                   )
 
     toc = time.time()
