@@ -33,7 +33,7 @@ python registration.py \
 python registration.py \
     -i [inputPath] \
     -o [outputPath] \
-    -keypoint_dir [outputPath] \
+    --keypoint_dir [outputPath] \
     --demo True
 '''
 
@@ -73,7 +73,7 @@ class Paras(object):
         # Parameters for skimage.measure.ransac
         self.min_samples = 5
         self.residual_threshold = 5  # default =1, 7
-        self.max_trials = 600
+        self.max_trials = 2000
         self.random_state = 42 #230
 
         # other user defined paras:
@@ -186,7 +186,7 @@ def mini_register(target,source,paras,
                                                     max_trials          = paras.max_trials,
                                                     random_state        = paras.random_state,
                                                     spl_tile_ls         = spl_tile_ls,
-                                                    verbose             = paras.demo)      
+                                                    verbose             = False)      
         
     if inliers is not None:
         print ("\t min-inliers%  =" , ( inliers.sum()/len(inliers)) *100 )
@@ -334,6 +334,9 @@ def registrationORB_tiled(targets, sources, paras, output_dir,
 
     print ("num of matched desciptors =", len(src[:,0]))
 
+    '''  LMEDS: Least-Median robust method'''
+    # model_robust01, __ = cv2.findHomography(src, dst,  cv2.LMEDS, 5.0)
+
     ''' 2. Transform estimation ''' 
     exam_tileRange_ls    = vis_fcts.crop_tiles(  ( img_rows,img_cols ),
                                                 ( int( tile_height/2), int( tile_width/2)))  
@@ -345,7 +348,8 @@ def registrationORB_tiled(targets, sources, paras, output_dir,
                                                 max_trials          = paras.max_trials,
                                                 random_state        = paras.random_state,
                                                 spl_tile_ls         = spl_tile_ls,
-                                                verbose             = paras.demo)      
+                                                verbose             = False)  
+
     print ("\t Final inliers%  =" , ( inliers.sum()/len(inliers)) *100 )
     
     ''' 3. Image Warping'''
@@ -371,6 +375,8 @@ def registrationORB_tiled(targets, sources, paras, output_dir,
         if paras.pre_register==True:
             source = warp(source, inverse_map = model_pre.inverse, 
                                  output_shape = paras.target_shape)             # float64
+                     
+        # source_warped = cv2.warpPerspective(source, model_robust01, paras.target_shape)        # LMEDS
 
         source_warped = warp(source, inverse_map = model_robust01.inverse, 
                                  output_shape = paras.target_shape)             # float64
@@ -532,7 +538,7 @@ def registration (input_dir,output_dir,target_round = "R2", imadjust = True,
     # import pdb;pdb.set_trace()
     # paras.display()
     if "," in tiling:
-        paras.stile_shape = [int(s) for s in re.findall(r'\d+', tiling)]
+        paras.tile_shape = [int(s) for s in re.findall(r'\d+', tiling)]
     elif tiling == []:
         paras.tile_shape =[]  # no tiling, cautious might be extremely slow!
 
@@ -690,8 +696,8 @@ def main():
                   demo                  = args.demo,  
                   tiling                = args.tiling ,
                   nKeypoint             = args.nKeypoint,
-                  ck_shift              = args. ck_shift, 
-                  crop_overlap          = args. crop_overlap,
+                  ck_shift              = args.ck_shift, 
+                  crop_overlap          = args.crop_overlap,
                   residual_threshold    = args.residual_threshold,
                   min_samples           = args.min_samples,
                   pre_register          = args.pre_register,

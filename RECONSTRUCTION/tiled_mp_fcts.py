@@ -26,9 +26,11 @@ def featureExtract_tiled(img, paras, tileRange_ls,verbose=False):
         # Set numOfThreads
         if str(paras.multiprocess).isnumeric():
             numOfThreads = int(paras.multiprocess)
+            
         else:
             numOfThreads = multiprocessing.cpu_count()
-     
+
+        print ("\n numOfThreads=", str(numOfThreads))
         pool = ThreadPool(processes=numOfThreads)
         ls_size = int(np.ceil(len(tileRange_ls)/numOfThreads))
         async_result = []
@@ -52,9 +54,9 @@ def featureExtract_tiled(img, paras, tileRange_ls,verbose=False):
             keypoint_alltiles   = np.concatenate((keypoint_alltiles,   r.get()[0]), axis=0)
             descriptor_alltiles = np.concatenate((descriptor_alltiles, r.get()[1]), axis=0)
 
-        keypoint_all   =  keypoint_alltiles[1:, :]
-        descriptor_all =  descriptor_alltiles[1:, :]
-        print("[multiprocessing] featureExtract_tiled: keypoint_alltiles.shape = ", keypoint_alltiles.shape)
+        keypoint_all   =  keypoint_alltiles[1:, :]      # N by 2
+        descriptor_all =  descriptor_alltiles[1:, :]    # N by 256
+        # print("[multiprocessing] featureExtract_tiled: keypoint_alltiles.shape = ", keypoint_alltiles.shape)
 
     print("*" * 10 + "Detected keypoint numbers: = ", keypoint_all.shape[0] )
 
@@ -113,7 +115,6 @@ def match_descriptors_tiled (keypoints0,descriptors0,keypoints1,descriptors1,
     ck_tileRange_ls = []
     src   = np.zeros((1, 2))
     dst   = np.zeros((1, 2))
-    inliers = np.zeros((1))
     for t_i, tileRange in enumerate( tileRange_ls):
         
         ck_tileRange=  [ max( 0 , tileRange[0] - ck_shift ), 
@@ -155,7 +156,6 @@ def match_descriptors_tiled (keypoints0,descriptors0,keypoints1,descriptors1,
     
     src  = src[1:, :]
     dst  = dst[1:, :]
-    inliers = inliers[1:]          
     return src,dst
 
 def transfromest_tiled(keypoints0,descriptors0,keypoints1,descriptors1, paras, tilerange_ls ,ck_shift, verbose= 0):

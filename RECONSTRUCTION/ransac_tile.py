@@ -276,15 +276,14 @@ def ransac_tile(data, model_class, min_samples, residual_threshold,
 #        if sample_inlier_tile_mean > 0.4  :                                     # most of the ones has been selected correctly
 #            crucial_id_tile_ls = list( np.argsort(sample_inlier_tile_perc)[ :int(min_samples/2)]   )       #
 
-        if (
-            # more inliers
-             sample_inlier_tile_mean > best_inlier_tile_mean
-#             same number of inliers but less "error" in terms of residuals
-            or (
-                    sample_inlier_num == best_inlier_num
-                and 
-                sample_model_residuals_sum < best_inlier_residuals_sum
-                )
+        if (           
+#              sample_inlier_tile_mean > best_inlier_tile_mean           #  # more inliersv p
+# #             same number of inliers but less "error" in terms of residuals
+#             or (    
+                 sample_inlier_num > best_inlier_num
+                            # and 
+                #     sample_model_residuals_sum < best_inlier_residuals_sum
+                # )
         ):
             best_model = sample_model
             best_inlier_num = sample_inlier_num
