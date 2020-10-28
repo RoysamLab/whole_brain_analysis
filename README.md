@@ -159,33 +159,34 @@ Parse the arguments to  `main_detection.py`:
    Python 3.6, TensorFlow 1.3, Keras 2.0.8 and other common packages. Highly recommend to install the GPU verison of Tensorflow
     
     ```bash
+    cd NUCLEAR_SEG
     conda create -n BrainCellSeg python=3.6 anaconda
     conda activate BrainCellSeg
-    cd SegmentationPipeline
     module load cudatoolkit/10.1                        # open a GPU node to install
     pip install -r requirements_gpu.txt --user         # change to requirements_cpu if use CPU version
-    python3 NUCLEAR_SEG/setup.py install --user
+    python3 setup.py install --user
     ```
 
 2) Preparse the dataset
   - __if only DAPI:__
     ```bash
-    python NUCLEAR_SEG/main_prepare_images.py \
+    python main_prepare_images.py \
     --INPUT_DIR=/path/to/input/dir \
-    --OUTPUT_DIR=NUCLEAR_SEG/data \
+    --OUTPUT_DIR=data \
     --DAPI R2C1.tif \
     ```
   - __if DAPI + Histones:__
     ```bash
-    python NUCLEAR_SEG/main_prepare_images.py \
+    python main_prepare_images.py \
     --INPUT_DIR=/path/to/input/dir \
-    --OUTPUT_DIR=NUCLEAR_SEG/data \
+    --OUTPUT_DIR=data \
     --DAPI R2C1.tif \
     --HISTONES R2C2.tif 
     ```
 
 3) Parse the arguments to  `main_nucleiSeg.py`:
     ```bash
+    cd ..
     python3 main_nucleiSeg.py detect \
     --dataset=NUCLEAR_SEG/data/multiplex.tif  \
     --results=/path/to/output/dir \

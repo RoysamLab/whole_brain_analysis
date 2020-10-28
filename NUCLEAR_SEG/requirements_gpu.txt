@@ -1,6 +1,6 @@
 
 numpy
-scipy
+scipy==1.4.1    # tensorflow 2.1.0 has requirement scipy==1.4.1
 opencv-python
 scikit-image>=0.16.0
 scikit-learn
