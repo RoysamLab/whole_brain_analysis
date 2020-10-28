@@ -44,7 +44,7 @@ import matplotlib.pyplot as plt
 from math import sqrt
 
 import sys
-sys.path.insert(0, os.path.join(os.getcwd(), 'sub_fcts'))
+sys.path.insert(0, os.path.join(os.getcwd(), 'autoseg'))
 import CellSegmentationfcts_hierarchy_wholebrain as myfcts                                          # my functions
 import GenerateICE_updated50CHN as ice  
 import time

@@ -7,53 +7,44 @@
 ##  1.Set up 
    ####  Create virtual environment
     $ conda create -n seg python=3.6 anaconda
-    $ conda activate seg
+    $ conda activate BrainCellSeg
     $ cd SegmentationPipeline
 
    ####  Installyation Requirements:  
    Python 3.6, TensorFlow 1.3, Keras 2.0.8 and other common packages. Highly recommend to install the GPU verison of Tensorflow
-   $ cd mrcnn_Seg
 
    #### Option1 : CPU version
     $ pip install -r requirements_cpu.txt --user
+
    #### Option2 : GPU version
     $ module load cudatoolkit/10.1                      # open a GPU node to install
     $ pip install -r requirements_gpu.txt --user
-    $ cd mrcnn_Seg
-
     
    $ python3 setup.py install --user
-   $ cd ..                                          # the project root folder
 
-    Tips: check whether GPU is running : $ watch -n 2 nvidia-smi
+    Tips: to check whether GPU is running : $ watch -n 2 nvidia-smi
 
    #### Test demo
     $ python3 main_segmentation.py detect \
         --dataset=demo/demo_input.jpeg \
-        --weights="pretrained_weights.h5" \
+        --weights=weights/pretrained_weights.h5 \
         --results=demo
 
 ##  3. Initial Segmentation       
  #### Create noisy training labels 
  Use traditional segmentation method to generate the rough segmentation result
      $ cd Automatic_Seg
-     $ python main_autoSeg_tiled_script.py \
-        --method="watershed"
-        --dataset="/project/hnguyen/xiaoyang/exps/Data/50_plex/jj_final/images_stacked/DPH.tif" \
-        --results="/project/hnguyen/xiaoyang/exps/Data/50_plex/out/autoseg"
-        
-     $ python main_autoSeg_tiled_script.py \
---method="yosef" \
---dataset="/project/hnguyen/xiaoyang/exps/Data/50_plex/jj_final/images_stacked/DPH.tif" \
---results="/project/hnguyen/xiaoyang/exps/Data/50_plex/out/autoseg"
-        
+     $ python main_autoseg.py \
+        --seed=[table contraining the nuclei seeds.txt]
+        --dataset=[image location] \
+        --results=[output]
+                
   __Arguments:__
   - `dataset` : Path the input gray scale image
   - `results` : Path to the directory saving output segmentation labels
-  - `method`: `watershed` or `yosef` segmentation methods
+  - `seed`: [table contraining the nuclei .txt]
 
 
-`
 
 ##  Step4： Prepare training set
 ### Stack 8 channels multiplex image 
@@ -100,7 +91,7 @@
     $ mkdir "$result_dir"
 
     $ cd "$proj_root"/samples/Hippo
-    $ python3 nucleus_wholebrain_train_detect_merge_multiplex.py train \
+    $ python3 main_nucleiSeg train \
     --dataset="$dataset_root"/whole/train \
     --weights="imagenet" \
     --toRGBOpt=1 \
@@ -133,7 +124,7 @@ Save the pretrain weights
     $ cd "$proj_root"/samples/Hippo
     $ result_dir="$data_root"/seg_results/"$fName"
 
-    $ python3 nucleus_wholebrain_train_detect_merge_multiplex.py detect \
+    $ python3 main_nucleiSeg detect \
     --dataset="$dataset_dir"/RDGHBDPH.tif \
     --weights=weights/mask_rcnn_nucleus_0040"$fName".h5 \
     --results="$result_dir" \

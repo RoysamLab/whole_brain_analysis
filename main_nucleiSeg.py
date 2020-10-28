@@ -796,7 +796,7 @@ if __name__ == '__main__':
                         default = '0',type = str, 
                         help="0 false(load all channels) ,1 true (load only the first 3 channels)")                    
     parser.add_argument('--weights', required=True,
-                        default="/project/ece/roysam/xiaoyang/exps/SegmentationPipeline/mrcnn_Seg/samples/prepare-train.sh",
+                        default="NUCLEAR_SEG/weights/mrcnn_weights.h5",
                         help="Path to weights .h5 file or 'coco'")
     args, _ = parser.parse_known_args()
 

@@ -47,6 +47,7 @@ protoc object_detection/protos/*.proto --python_out=.
 ```
 
 Setting up the environment and installing the requirements takes ~45 minutes.  
+
 ## 1. Reconstruction
 Parse the arguments to  `main_reconstruction.py`:
 ```bash
@@ -133,6 +134,8 @@ __Arguments:__
   R2C9.tif |CD31        |Yes                     |No                      |         |         |         |34000|8000 |44000|15000
 
 ## 2. Detection
+### (Option1) From human annotated Faster RCNN pretrained weight
+
 Parse the arguments to  `main_detection.py`:
   - __if only DAPI:__
     ```bash
@@ -145,11 +148,48 @@ Parse the arguments to  `main_detection.py`:
     ```bash
     python main_detection.py \
        --INPUT_DIR /path/to/input/dir \
-       --OUTPUT_DIR /path/to/input/dir \
+       --OUTPUT_DIR /path/to/output/dir \
        --DAPI R2C1.tif \
        --HISTONES R2C2.tif
     ```
 
+### (Option2) From automatic MRCNN pretrained weight
+1) Set up the enviroment for BrainCellSeg
+   ####  Installyation Requirements:  
+   Python 3.6, TensorFlow 1.3, Keras 2.0.8 and other common packages. Highly recommend to install the GPU verison of Tensorflow
+    
+    ```bash
+    conda create -n BrainCellSeg python=3.6 anaconda
+    conda activate BrainCellSeg
+    cd SegmentationPipeline
+    module load cudatoolkit/10.1                        # open a GPU node to install
+    pip install -r requirements_gpu.txt --user         # change to requirements_cpu if use CPU version
+    python3 NUCLEAR_SEG/setup.py install --user
+    ```
+
+2) Preparse the dataset
+  - __if only DAPI:__
+    ```bash
+    python NUCLEAR_SEG/main_prepare_images.py \
+    --INPUT_DIR=/path/to/input/dir \
+    --OUTPUT_DIR=NUCLEAR_SEG/data \
+    --DAPI R2C1.tif \
+    ```
+  - __if DAPI + Histones:__
+    ```bash
+    python NUCLEAR_SEG/main_prepare_images.py \
+    --INPUT_DIR=/path/to/input/dir \
+    --OUTPUT_DIR=NUCLEAR_SEG/data \
+    --DAPI R2C1.tif \
+    --HISTONES R2C2.tif 
+    ```
+
+3) Parse the arguments to  `main_nucleiSeg.py`:
+    ```bash
+    python3 main_nucleiSeg.py detect \
+    --dataset=NUCLEAR_SEG/data/multiplex.tif  \
+    --results=/path/to/output/dir \
+    ```
 ## 3. Classification
 Parse the arguments to  `main_classification.py`:
   - __if first time classifying:__
