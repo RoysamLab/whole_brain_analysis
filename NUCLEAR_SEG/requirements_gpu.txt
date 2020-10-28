@@ -1,0 +1,21 @@
+
+numpy
+scipy
+opencv-python
+scikit-image>=0.16.0
+scikit-learn
+
+XlsxWriter
+imgaug==0.4.0
+Pillow
+cython
+matplotlib
+pandas
+IPython
+histomicstk
+tqdm
+
+setuptools>=41.0.0
+h5py==2.10.0
+
+tensorflow==2.1.0  # gpu and cpu both work
