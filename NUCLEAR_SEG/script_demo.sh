@@ -11,28 +11,22 @@
 module load cudatoolkit/10.1
 conda activate BrainCellSeg
 
-usr_root="/project/ece/roysam/xiaoyang/exps" 
-project_root=$usr_root"/SegmentationPipeline"
-data_root=$usr_root"/Data/50_plex/jj_final"
-
-validation_set=$data_root"/atlas/multiplex_atlas"
-dataset_path=$data_root"/images_stacked_multiplex/gray_adjusted.tif"
-multiplex_path=$data_root"/images_stacked_multiplex/multiplex_adjusted.tif"
+usr_root="/project/ece/roysam/xiaoyang/exps"
+project_root=$usr_root"/whole_brain_analysis"
+data_root="/project/ece/roysam/datasets/50_plex/S1/final"
 
 
+cd $project_root
+# Prepare image
+python NUCLEAR_SEG/main_prepare_images.py \
+--INPUT_DIR $data_root \
+--OUTPUT_DIR NUCLEAR_SEG/data \
+--DAPI S1_R2C1.tif \
+--HISTONES S1_R2C2.tif 
 
 
+# Run segmentation/Detection
 
-python main_prepare_images.py \
---INPUT_DIR=/path/to/input/dir \
---OUTPUT_DIR=NUCLEAR_SEG/data \
---DAPI R2C1.tif \
---HISTONES R2C2.tif 
-
-
-
-
-cd ..
 python3 main_nucleiSeg.py detect \
 --dataset=NUCLEAR_SEG/data/multiplex.tif  \
---results=/path/to/output/dir \
+--results=NUCLEAR_SEG/output 

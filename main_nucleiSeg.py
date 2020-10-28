@@ -43,16 +43,17 @@ import warnings
 import h5py
 warnings.filterwarnings("ignore")
 
-sys.path.insert(0, os.path.join( os.getcwd(), '../../supplement/'))
+sys.path.insert(0, os.path.join( os.getcwd(), 'NUCLEAR_SEG/supplement/'))
 import merge_detection_result as merge_crop_fcts
 import datasets_utils as dt_utils
 # Root directory of the project
+
 ROOT_DIR = os.path.abspath("../../")
 # Import Mask RCNN
 sys.path.append(ROOT_DIR)  # To find local version of the library
 from mrcnn.config import Config
 # from mrcnn import model as modellib
-sys.path.insert(0, os.path.join( os.getcwd(), '../../mrcnn/'))
+sys.path.insert(0, os.path.join( os.getcwd(), 'NUCLEAR_SEG/mrcnn/'))
 
 import tensorflow as tf
 from pkg_resources import parse_version
