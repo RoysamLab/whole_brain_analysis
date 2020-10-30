@@ -14,9 +14,9 @@ conda activate BrainCellSeg
 usr_root="/project/ece/roysam/xiaoyang/exps"
 project_root=$usr_root"/whole_brain_analysis"
 data_root="/project/ece/roysam/datasets/50_plex/S1/final"
-
-
 cd $project_root
+
+
 # Prepare image
 python NUCLEAR_SEG/main_prepare_images.py \
 --INPUT_DIR $data_root \

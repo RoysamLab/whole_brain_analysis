@@ -134,7 +134,7 @@ __Arguments:__
   R2C9.tif |CD31        |Yes                     |No                      |         |         |         |34000|8000 |44000|15000
 
 ## 2. Detection
-### (Option1) From human annotated Faster RCNN pretrained weight
+### (Option1) From human annotated Faster RCNN 
 
 Parse the arguments to  `main_detection.py`:
   - __if only DAPI:__
@@ -153,8 +153,8 @@ Parse the arguments to  `main_detection.py`:
        --HISTONES R2C2.tif
     ```
 
-### (Option2) From automatic MRCNN pretrained weight
-1) Set up the enviroment for BrainCellSeg
+### (Option2) From automatic MRCNN 
+ Set up the enviroment for BrainCellSeg
    ####  Installyation Requirements:  
    Python 3.6, TensorFlow 1.3, Keras 2.0.8 and other common packages. Highly recommend to install the GPU verison of Tensorflow
     
@@ -167,7 +167,7 @@ Parse the arguments to  `main_detection.py`:
     python3 setup.py install --user
     ```
 
-2) Preparse the dataset
+ Preparse the dataset
   - __if only DAPI:__
     ```bash
     python main_prepare_images.py \
@@ -184,12 +184,15 @@ Parse the arguments to  `main_detection.py`:
     --HISTONES R2C2.tif 
     ```
 
-3) Parse the arguments to  `main_nucleiSeg.py`:
+ Parse the arguments to  `main_nucleiSeg.py`:
+  If you don't have pretrained weights, download the [mrcnn_weights.h5](https://drive.google.com/file/d/1fZ40eNuJ9LsbCRAjdxASvOkA4dEwXEzp/view?usp=sharing) to 'NUCLEAR_SEG/weights'
+  
     ```bash
     cd ..
     python3 main_nucleiSeg.py detect \
     --dataset=NUCLEAR_SEG/data/multiplex.tif  \
     --results=/path/to/output/dir \
+    
     ```
 ## 3. Classification
 Parse the arguments to  `main_classification.py`:

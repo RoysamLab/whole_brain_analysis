@@ -531,7 +531,6 @@ def detect_model(model, dataset_dir, crop_size =[512,512],batch_size = 1, result
     print("Running on {}".format(dataset_dir))
 
     # Create directory       
-    os.makedirs(result_dir, exist_ok=True)
     # crop_imgs_dir = os.path.join(result_dir,"cropped_imgs")
     # os.makedirs(crop_imgs_dir, exist_ok=True)
     t_0 = time.time()
@@ -796,7 +795,7 @@ if __name__ == '__main__':
     parser.add_argument('--toRGBOpt', required=False,
                         default = '0',type = str, 
                         help="0 false(load all channels) ,1 true (load only the first 3 channels)")                    
-    parser.add_argument('--weights', required=True,
+    parser.add_argument('--weights', required=False,
                         default="NUCLEAR_SEG/weights/mrcnn_weights.h5",
                         help="Path to weights .h5 file or 'coco'")
     args, _ = parser.parse_known_args()
@@ -849,8 +848,11 @@ if __name__ == '__main__':
 
     # Results directory
     # Save submission files here
-    
+    if args.command == "detect":
+        os.makedirs(args.results, exist_ok=True)
+
     ##########  Load image #################
+
     if os.path.isdir(args.dataset) is False :  # Load images path
         # global wholeImage
         print ("loading whole brain image:", args.dataset)
@@ -985,9 +987,8 @@ if __name__ == '__main__':
             weights_path = model.get_imagenet_weights()            
         else:
             weights_path = os.path.normpath(args.weights)
-            # load the latest weight from the traingLog(weights) folder
-
-            weights_path =   load_latest_weight(weights_path)
+            if args.command =="retrain":
+                weights_path =   load_latest_weight(weights_path)    #             # load the latest weight from the traingLog(weights) folder
         print("------load weights_path=",weights_path)
         model.load_weights(weights_path, by_name=True)
 
