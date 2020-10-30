@@ -154,11 +154,11 @@ Parse the arguments to  `main_detection.py`:
     ```
 
 ### (Option2) From automatic MRCNN 
- Set up the enviroment for BrainCellSeg
-   ####  Installyation Requirements:  
-   Python 3.6, TensorFlow 1.3, Keras 2.0.8 and other common packages. Highly recommend to install the GPU verison of Tensorflow
-    
-    ```bash
+#### Set up the enviroment for BrainCellSeg
+    Installyation Requirements:     Python 3.6, TensorFlow 1.3, Keras 2.0.8 and other common packages. 
+    Highly recommend to install the GPU verison of Tensorflow
+
+    ```
     cd NUCLEAR_SEG
     conda create -n BrainCellSeg python=3.6 anaconda
     conda activate BrainCellSeg
@@ -167,13 +167,13 @@ Parse the arguments to  `main_detection.py`:
     python3 setup.py install --user
     ```
 
- Preparse the dataset
+ #### Preparse the dataset
   - __if only DAPI:__
     ```bash
     python main_prepare_images.py \
     --INPUT_DIR=/path/to/input/dir \
     --OUTPUT_DIR=data \
-    --DAPI R2C1.tif \
+    --DAPI R2C1.tif 
     ```
   - __if DAPI + Histones:__
     ```bash
@@ -184,9 +184,9 @@ Parse the arguments to  `main_detection.py`:
     --HISTONES R2C2.tif 
     ```
 
- Parse the arguments to  `main_nucleiSeg.py`:
+ #### Parse the arguments to  `main_nucleiSeg.py`:
   If you don't have pretrained weights, download the [mrcnn_weights.h5](https://drive.google.com/file/d/1fZ40eNuJ9LsbCRAjdxASvOkA4dEwXEzp/view?usp=sharing) to 'NUCLEAR_SEG/weights'
-  
+
     ```bash
     cd ..
     python3 main_nucleiSeg.py detect \
