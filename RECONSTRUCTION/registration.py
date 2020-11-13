@@ -108,7 +108,7 @@ class Paras(object):
         print("\tcrop_overlap = ", self.crop_overlap)
         print("\tkeypoint_dir = ", self.keypoint_dir)
         print("\tdemo = ", self.demo)
-        print("\tbsBoost = ", self.bootstrap)
+        print("\tbootstrap = ", self.bootstrap)
         print("\timadjust = ", self.imadjust)
         print("\pre_register = ", self.pre_register)
 
@@ -214,7 +214,7 @@ def registrationORB_tiled(targets, sources, paras, output_dir,
     for key_id, t_key in enumerate( sorted ( targets.keys() )) :                
         if key_id == 0:
             with tiff.TiffFile(targets[t_key]) as tif:
-                target0 = tif.asarray(memmap=True)
+                target0 = tif.asarray(memmap=False)
 
             input_type = target0.dtype
             target0 = rgb2gray(target0) if target0.ndim == 3 else target0
@@ -223,7 +223,7 @@ def registrationORB_tiled(targets, sources, paras, output_dir,
     for key_id, s_key in enumerate( sorted ( sources.keys() )) :
         if key_id == 0:
             with tiff.TiffFile(sources[s_key]) as tif:
-                source0 = tif.asarray(memmap=True)            
+                source0 = tif.asarray(memmap=False)            
             source0 = rgb2gray(source0) if source0.ndim == 3 else source0
             # print("Process ", s_key, " as source0", "source0.shape =", source0.shape)
             source0_key = s_key
@@ -233,8 +233,8 @@ def registrationORB_tiled(targets, sources, paras, output_dir,
 
     '''1. Feature detection and matching'''
     # convert to 8 bit for detection in loweer quality 
-    target0 = img_as_ubyte(target0) # if input_type is "8bit" else target0
-    source0 = img_as_ubyte(source0) # if input_type is "8bit" else source0
+    target0 = img_as_ubyte(target0) if input_type != np.uint8  else target0
+    source0 = img_as_ubyte(source0) if input_type != np.uint8  else source0
 
     target0 = vis_fcts.adjust_image (target0) if paras.imadjust is True  else target0
     source0 = vis_fcts.adjust_image (source0) if paras.imadjust is True else source0
@@ -337,7 +337,7 @@ def registrationORB_tiled(targets, sources, paras, output_dir,
     '''  LMEDS: Least-Median robust method'''
     # model_robust01, __ = cv2.findHomography(src, dst,  cv2.LMEDS, 5.0)
 
-    ''' 2. Transform estimation ''' 
+    print(''' 2. Transform estimation ''' )
     exam_tileRange_ls    = vis_fcts.crop_tiles(  ( img_rows,img_cols ),
                                                 ( int( tile_height/2), int( tile_width/2)))  
     spl_tile_ls, spl_tile_dic = spl_tiled_data ( (src, dst) , exam_tileRange_ls, paras)
@@ -348,23 +348,24 @@ def registrationORB_tiled(targets, sources, paras, output_dir,
                                                 max_trials          = paras.max_trials,
                                                 random_state        = paras.random_state,
                                                 spl_tile_ls         = spl_tile_ls,
-                                                verbose             = False)  
+                                                verbose             = paras.demo)  
 
     print ("\t Final inliers%  =" , ( inliers.sum()/len(inliers)) *100 )
     
-    ''' 3. Image Warping'''
+    print(''' 3. Image Warping''')
     # we must warp, or transform, two of the three images so they will properly align with the stationary image.    
     # Apply same offset on all rest images       
     model_mini_dic = {}
     save_vis = True if paras.demo == True else False
     reuse_kp = True    # whether to reused keypoint for bootstrap region (not recommend, fast but poor align)
     bootstrap = paras.bootstrap    # bootstrap on potential folded regions 
-
+    
     if paras.demo == False:
         del src,dst,source0
         
-    # if bootstrap == False:
-    #     del keypoints0, keypoints1, descriptors0,descriptors1
+    if bootstrap == False:
+        del keypoints0, keypoints1, descriptors0,descriptors1
+    # import pdb;pdb.set_trace()
 
     for s_i, source_key in enumerate( sorted ( sources.keys() )) :
         with tiff.TiffFile(sources[source_key]) as tif:
@@ -379,13 +380,13 @@ def registrationORB_tiled(targets, sources, paras, output_dir,
         # source_warped = cv2.warpPerspective(source, model_robust01, paras.target_shape)        # LMEDS
 
         source_warped = warp(source, inverse_map = model_robust01.inverse, 
-                                 output_shape = paras.target_shape)             # float64
+                                     output_shape = paras.target_shape)             # float64
 
-        '''evaluate the initial registration result '''
+        print('''evaluate the initial registration result ''')
         if (s_i == 0 and bootstrap==True) or save_vis == True:                                      
             # merge diff regions
             __, inital_diff,binary_target,error,__ = vis_fcts.eval_draw_diff ( img_as_ubyte(target0),                                                            
-                                                                              img_as_ubyte(source_warped) )                   
+                                                                               img_as_ubyte(source_warped) )                   
             bsBoost_tileRange_ls = []
             for tileRange_key in spl_tile_dic.keys() :
                 tileRange = exam_tileRange_ls[tileRange_key]            #exam tile range (small)
@@ -469,19 +470,21 @@ def registrationORB_tiled(targets, sources, paras, output_dir,
                         source_warped[ ck_tileRange[0]:ck_tileRange[2],       
                                     ck_tileRange[1]:ck_tileRange[3]] += source_warped_tile*fill_mask_tile
 
-        print ( "source_warped.type= ", source_warped.dtype)
+        print ( "source_warped.type= ", source_warped.dtype, "range=",source_warped.max())
         t_ransac = time.time()
 
         ### save source
-        # output_type = input_type
+        output_type = input_type
+
         if input_type == np.uint8 or paras.demo:
             print("\tsaving image as 8 bit")
             tiff.imsave(os.path.join(output_dir, source_key),
-                        img_as_ubyte(source_warped).astype( input_type))  
+                        np.clip(source_warped*255,0,255).astype( input_type) )  
         else:  # output_type is "16bit":
             print("\tsaving image as 16bit")
             tiff.imsave(os.path.join(output_dir, source_key),
-                        img_as_uint(source_warped).astype( input_type))  
+                        np.clip(source_warped*65535,0,65535).astype( input_type))  
+        # import pdb;pdb.set_trace()
                  
         if s_i == 0 and save_vis == True:            
             t_warp0 = time.time()
