@@ -363,8 +363,8 @@ def registrationORB_tiled(targets, sources, paras, output_dir,
     if paras.demo == False:
         del src,dst,source0
         
-    if bootstrap == False:
-        del keypoints0, keypoints1, descriptors0,descriptors1
+#     if bootstrap == False:
+#         del keypoints0, keypoints1, descriptors0,descriptors1
     # import pdb;pdb.set_trace()
 
     for s_i, source_key in enumerate( sorted ( sources.keys() )) :
