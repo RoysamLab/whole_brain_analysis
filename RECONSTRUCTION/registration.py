@@ -12,7 +12,7 @@ Improvements compared to above
 2) Dramatically improve alignment accuracy for texture based images by tile-based keypoint detection
 3) Support multiprocess acceleration & single thread by tile-based keypoint extracting and matcching
 4) Auto-evaluation of the result and self-correction for artificall error (local fold)
-
+5) Use CV2  rather than skimage for keypoint extraction to acclerate ()
 
 --- conda packages ---
 conda install -c conda-forge scikit-image \
@@ -35,6 +35,7 @@ python registration.py \
     -o [outputPath] \
     --keypoint_dir [outputPath] \
     --demo True
+
 '''
 
 import os
@@ -177,6 +178,8 @@ def mini_register(target,source,paras,
                                       target.shape, exam_tileRange_ls ,
                                       ck_shift = paras.ck_shift)          
     print ("Matched keypoins = ", src.shape[0] )          
+    import pdb;pdb.set_trace()
+
     if src.shape[0] > paras.min_samples:
         kps = (src, dst)                 
         spl_tile_ls, spl_tile_dic = spl_tiled_data ( kps , exam_tileRange_ls, paras)
@@ -210,11 +213,12 @@ def registrationORB_tiled(targets, sources, paras, output_dir,
     t_0 = time.time()    
     target0 = []  # only use target 0 and source 0 for keypoint extraction
     source0 = []
+
     # READING IMAGES
     for key_id, t_key in enumerate( sorted ( targets.keys() )) :                
         if key_id == 0:
             with tiff.TiffFile(targets[t_key]) as tif:
-                target0 = tif.asarray(memmap=False)
+                target0 = tif.asarray(memmap=True)
 
             input_type = target0.dtype
             target0 = rgb2gray(target0) if target0.ndim == 3 else target0
@@ -223,7 +227,7 @@ def registrationORB_tiled(targets, sources, paras, output_dir,
     for key_id, s_key in enumerate( sorted ( sources.keys() )) :
         if key_id == 0:
             with tiff.TiffFile(sources[s_key]) as tif:
-                source0 = tif.asarray(memmap=False)            
+                source0 = tif.asarray(memmap=True)            
             source0 = rgb2gray(source0) if source0.ndim == 3 else source0
             # print("Process ", s_key, " as source0", "source0.shape =", source0.shape)
             source0_key = s_key
@@ -238,6 +242,9 @@ def registrationORB_tiled(targets, sources, paras, output_dir,
 
     target0 = vis_fcts.adjust_image (target0) if paras.imadjust is True  else target0
     source0 = vis_fcts.adjust_image (source0) if paras.imadjust is True else source0
+    assert target0.max()!=0    # make sure the wrapped is not empty
+    assert source0.max()!=0    # make sure the wrapped is not empty
+
     paras.target_shape = ( target0.shape[0],target0.shape[1] )
     
     paras.display()
@@ -294,7 +301,7 @@ def registrationORB_tiled(targets, sources, paras, output_dir,
             io.imsave(os.path.join(output_dir,"-PreRegister"+ source0_key +".tif"),
                         img_as_ubyte(source0) )        
 
-    ''' 1.1.  EXTRACT KEYPOINTS '''
+    print(''' 1.1.  EXTRACT KEYPOINTS ''')
     if paras.keypoint_dir == None:
         keypoints0, descriptors0 = tiled_fcts.featureExtract_tiled(source0, paras, tileRange_ls)  # keypoints0.max(axis=1)
         if keypoints1 is None or descriptors1 is None:  # need to create featureExtraction for target, else read the created one from input
@@ -317,7 +324,7 @@ def registrationORB_tiled(targets, sources, paras, output_dir,
     t_featureExtract_tiled = time.time()
     print("[Timer] featureExtract tiled used time (h) =", str((t_featureExtract_tiled - t_8bit) / 3600))
     
-    ''' 1.2 Match descriptors between target and source image '''
+    print("\n",''' 1.2 Match descriptors between target and source image ''')
     # Reorderded keypoints acoording to the matching streateger by descriptors
     if paras.multiprocess == False:
         src,dst =  tiled_fcts.match_descriptors_tiled(keypoints0,descriptors0,
@@ -333,26 +340,42 @@ def registrationORB_tiled(targets, sources, paras, output_dir,
 
 
     print ("num of matched desciptors =", len(src[:,0]))
+    t_matchKyepoint = time.time()
+
+    print("[Timer] Match descriptors used time (h) =", str((t_matchKyepoint-t_featureExtract_tiled) / 3600))
+
 
     '''  LMEDS: Least-Median robust method'''
     # model_robust01, __ = cv2.findHomography(src, dst,  cv2.LMEDS, 5.0)
 
-    print(''' 2. Transform estimation ''' )
+    print("\n",''' 2. Transform estimation ''' )
     exam_tileRange_ls    = vis_fcts.crop_tiles(  ( img_rows,img_cols ),
                                                 ( int( tile_height/2), int( tile_width/2)))  
     spl_tile_ls, spl_tile_dic = spl_tiled_data ( (src, dst) , exam_tileRange_ls, paras)
-    print ("Ransac_tile: remove outliers" ) 
-    model_robust01, inliers = ransac_tile((src, dst), AffineTransform,
-                                                min_samples         = paras.min_samples, 
-                                                residual_threshold  = paras.residual_threshold,
-                                                max_trials          = paras.max_trials,
-                                                random_state        = paras.random_state,
-                                                spl_tile_ls         = spl_tile_ls,
-                                                verbose             = paras.demo)  
 
-    print ("\t Final inliers%  =" , ( inliers.sum()/len(inliers)) *100 )
+    print ("Ransac_tile: remove outliers" )   # try out all the transforma until the non transoformation has found
+    inlier_rate_max = 0
+    for transform_type in [ AffineTransform,ProjectiveTransform, SimilarityTransform ]:        
+        model_tf, inliers_tf = ransac_tile((src, dst), transform_type,
+                                            min_samples         = paras.min_samples, 
+                                            residual_threshold  = paras.residual_threshold,
+                                            max_trials          = paras.max_trials,
+                                            random_state        = paras.random_state,
+                                            spl_tile_ls         = spl_tile_ls,
+                                            verbose             = paras.demo)  
+        inlier_rate = ( inliers_tf.sum()/len(inliers_tf)) *100
+        # import pdb;pdb.set_trace()
+        print ("\t", transform_type, "inliers%  =" , '%.2f'%inlier_rate )            
+        if inlier_rate > inlier_rate_max:
+            model_robust01 = model_tf
+            inlier_rate_max = inlier_rate
+            inliers = inliers_tf
+
+    assert inlier_rate_max > 0
+
+    print ("\t Final inliers%  =" , '%.2f'%inlier_rate_max )
     
-    print(''' 3. Image Warping''')
+    print("\n",''' 3. Image Warping''')
     # we must warp, or transform, two of the three images so they will properly align with the stationary image.    
     # Apply same offset on all rest images       
     model_mini_dic = {}
@@ -363,13 +386,12 @@ def registrationORB_tiled(targets, sources, paras, output_dir,
     if paras.demo == False:
         del src,dst,source0
         
-#     if bootstrap == False:
-#         del keypoints0, keypoints1, descriptors0,descriptors1
-    # import pdb;pdb.set_trace()
+    # if bootstrap == False:
+    #     del keypoints0, keypoints1, descriptors0,descriptors1
 
     for s_i, source_key in enumerate( sorted ( sources.keys() )) :
         with tiff.TiffFile(sources[source_key]) as tif:
-            source = tif.asarray(memmap=False)              
+            source = tif.asarray(memmap=True)              
         source = rgb2gray(source) if source.ndim == 3 else source               # uint16
         
         source = vis_fcts.check_shape(source,paras.target_shape)                # make sure the source image is the same size to target      
@@ -475,6 +497,7 @@ def registrationORB_tiled(targets, sources, paras, output_dir,
 
         ### save source
         output_type = input_type
+        assert source_warped.max()!=0    # make sure the wrapped is not empty
 
         if input_type == np.uint8 or paras.demo:
             print("\tsaving image as 8 bit")
@@ -489,7 +512,7 @@ def registrationORB_tiled(targets, sources, paras, output_dir,
         if s_i == 0 and save_vis == True:            
             t_warp0 = time.time()
             print("[Timer] Image Warping for 1 channel ", source_key, " used time (h) =",
-                  str((t_warp0 - t_ransac) / 3600))
+                  '%.2f'%((t_warp0 - t_ransac) / 3600))
             
             ########## save vis ############
             print("###########save vis")     
@@ -513,8 +536,8 @@ def registrationORB_tiled(targets, sources, paras, output_dir,
                         vis_diff_resized )
         
     t_warp = time.time()
-    print("[Timer] Image Warping for all channels used time (h) =",
-          str((t_warp - t_ransac) / 3600))        
+    print("[Timer] Image Warping for all channels used time (min) =",
+          '%.2f'%((t_warp - t_ransac) / 60))        
 
     return keypoints1, descriptors1
 
@@ -707,7 +730,7 @@ def main():
                   )
 
     toc = time.time()
-    print("total time is (h) =", str((toc - tic) / 3600))
+    print("total time is (h) =", '%.2f'%((toc - tic) / 3600))
 
 
 if __name__ == '__main__':
