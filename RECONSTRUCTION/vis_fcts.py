@@ -65,7 +65,8 @@ def eval_draw_diff (target, source, tileRange_ls= None) :
     vis = np.dstack ( [ vis_target,             # RGB 
                         vis_source,
                         np.zeros_like(target,dtype= np.uint8)])     
-            
+    # import pdb;pdb.set_trace()
+        
     binary_source = vis_source >= threshold_otsu(vis_source) * 1.2
     binary_target = vis_target >= threshold_otsu(vis_target) * 1.2
     binary_diff = abs( binary_source *1- binary_target *1 ) 

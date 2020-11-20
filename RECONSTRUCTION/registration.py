@@ -12,7 +12,8 @@ Improvements compared to above
 2) Dramatically improve alignment accuracy for texture based images by tile-based keypoint detection
 3) Support multiprocess acceleration & single thread by tile-based keypoint extracting and matcching
 4) Auto-evaluation of the result and self-correction for artificall error (local fold)
-5) Use CV2  rather than skimage for keypoint extraction to acclerate ()
+5) 11/18/2020 (With Jahandar) Use CV2  rather than skimage for keypoint extraction to acclerate 
+6) 11/19/2020 (With Jahandar) Try 3 differnet transformation and use the one has the mx inliner_rate
 
 --- conda packages ---
 conda install -c conda-forge scikit-image \
@@ -291,7 +292,7 @@ def registrationORB_tiled(targets, sources, paras, output_dir,
         model_pre = local_register(target_resized,source_resized,mini_paras)    # extract the model inverse map from CHN0        
 
         source0 = warp(source0, inverse_map = model_pre.inverse, 
-                                output_shape = paras.target_shape)   
+                                output_shape = paras.target_shape, cval= 0)   
         if paras.demo:
             # vis_pre, __,__,error,__ = vis_fcts.eval_draw_diff ( img_as_ubyte(target0),                                                            
             #                                                img_as_ubyte(source0) )                   
@@ -402,7 +403,7 @@ def registrationORB_tiled(targets, sources, paras, output_dir,
         # source_warped = cv2.warpPerspective(source, model_robust01, paras.target_shape)        # LMEDS
 
         source_warped = warp(source, inverse_map = model_robust01.inverse, 
-                                     output_shape = paras.target_shape)             # float64
+                                     output_shape = paras.target_shape, cval=0)             # float64
 
         print('''evaluate the initial registration result ''')
         if (s_i == 0 and bootstrap==True) or save_vis == True:                                      
@@ -691,7 +692,7 @@ def main():
                         help=" 'T' multi processing, 'F' single processing, 'N' specify number of threads", )
     parser.add_argument('--imadjust', required=False, default = 'T',type = str, 
                             help='whether to adjust the image for feature extraction')    
-    parser.add_argument('--bootstrap', required=False, default = 'T',type = str, 
+    parser.add_argument('--bootstrap', required=False, default = 'F',type = str, 
                             help='whether to adopt bootstrap to enhance registration')    
     parser.add_argument('--pre_register', required=False, default = 'F',type = str, 
                             help='whether to adopt pre-registration on downscaled image ')    
