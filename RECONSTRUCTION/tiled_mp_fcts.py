@@ -154,7 +154,7 @@ def match_descriptors_tiled (keypoints0,descriptors0,keypoints1,descriptors1,
             [sort_dh.append( dh_all[tile_matches01[i,:][0],tile_matches01[i,:][1]] )for i in range( len(tile_matches01))]
             sort_index = np.argsort(sort_dh)
             
-            GOOD_MATCH_PERCENT = 0.30                                             # Jahandar
+            GOOD_MATCH_PERCENT = 0.5 #e.g.0.30                                             # Jahandar
             numGoodMatches = int(len(sort_index) * GOOD_MATCH_PERCENT)
             
             # print ("numGoodMatches=", numGoodMatches)

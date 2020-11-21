@@ -241,8 +241,8 @@ def ransac_tile(data, model_class, min_samples, residual_threshold,
     crucial_id_tile_ls = []
     for num_trials in range(max_trials):
         # do sample selection according data pairs
-        if verbose is True:
-            print("num_trials=",num_trials) 
+        # if verbose is True:
+        #     print("num_trials=",num_trials) 
         samples = [d[spl_idxs] for d in data]
 
         # for next iteration choose random sample set and be sure that no samples repeat
@@ -280,10 +280,11 @@ def ransac_tile(data, model_class, min_samples, residual_threshold,
 #              sample_inlier_tile_mean > best_inlier_tile_mean           #  # more inliersv p
 # #             same number of inliers but less "error" in terms of residuals
 #             or (    
-                 sample_inlier_num > best_inlier_num
-                            # and 
+                 ( sample_inlier_num > best_inlier_num )
+                             and 
                 #     sample_model_residuals_sum < best_inlier_residuals_sum
                 # )
+                 ( np.all(np.isnan(sample_model.params)) == False) 
         ):
             best_model = sample_model
             best_inlier_num = sample_inlier_num
