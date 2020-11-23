@@ -447,8 +447,8 @@ def registrationORB_tiled(targets, sources, paras, output_dir,
                                                         mode = "constant")
                 io.imsave(os.path.join(output_dir, source_key.split(".")[0] + "-BeforeErr"+ '%.1f'%error+"%_diffVis.jpg"),
                             vis_diff_resized )        
-        else:
-            del inliers
+#         else:
+#             del inliers
             
         '''rerun the registration for bootstrap regions    '''    
 
