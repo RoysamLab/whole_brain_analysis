@@ -416,7 +416,7 @@ def registrationORB_tiled(targets, sources, paras, output_dir,
                                      output_shape = paras.target_shape, cval=0)             # float64
 
         print('''evaluate the initial registration result ''')
-        if (s_i == 0 and bootstrap==True) and paras.demo == True:                                      
+        if (s_i == 0 and bootstrap==True) or paras.demo == True:                                      
             # merge diff regions
             __, inital_diff,binary_target,error,__ = vis_fcts.eval_draw_diff ( img_as_ubyte(target0),                                                            
                                                                                img_as_ubyte(source_warped) )                   
@@ -447,9 +447,9 @@ def registrationORB_tiled(targets, sources, paras, output_dir,
                                                         mode = "constant")
                 io.imsave(os.path.join(output_dir, source_key.split(".")[0] + "-BeforeErr"+ '%.1f'%error+"%_diffVis.jpg"),
                             vis_diff_resized )        
-
         else:
             del inliers
+            
         '''rerun the registration for bootstrap regions    '''    
 
         if bootstrap == True:            
@@ -555,9 +555,9 @@ def registrationORB_tiled(targets, sources, paras, output_dir,
     return keypoints1, descriptors1
 
 def registration (input_dir,output_dir,target_round = "R2", imadjust = True,
-                  multiprocess = True, keypoint_dir = None,bootstrap =True,
-                  demo = False , tiling = "1000,1000" ,nKeypoint=  300000, 
-                  ck_shift = 100, crop_overlap =10,residual_threshold =5,min_samples =5,pre_register = False):
+                  multiprocess = True, keypoint_dir = None,bootstrap =False,
+                  demo = False , tiling = "1000,1000" ,nKeypoint=  200000, 
+                  ck_shift = 200, crop_overlap =50,residual_threshold =5,min_samples =5,pre_register = False):
     # Parameters
     print("Setting Parameteres:========")
     paras = Paras()
