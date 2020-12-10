@@ -57,16 +57,17 @@ def crop_tiles( img_shape,tile_shape,crop_overlap = 0,ck_shift=None):
     return result
 
 
-def eval_draw_diff (target, source, tileRange_ls= None) :   
-    print ("\n--------------eval_draw_diff-------------------")
+def eval_draw_diff (target, source, tileRange_ls= None, verbose = False) :   
+    
     vis_target = adjust_image( img_as_ubyte( target) )
     vis_source = adjust_image( img_as_ubyte( source))
-    
-    print ("vis_target:",vis_target.max(),"vis_source:",vis_source.max())
+    if verbose == True:
+        print ("\n--------------eval_draw_diff-------------------")
+        print ("vis_target:",vis_target.max(),"vis_source:",vis_source.max())
 
-    assert vis_target.max() > 0    # make sure the wrapped is not empty
-    assert vis_source.max() > 0    # make sure the wrapped is not empty
-
+    if vis_source.max() == 0:    # make sure the wrapped is not empty
+        return None, None,None,np.inf,None
+        
     vis = np.dstack ( [ vis_target,             # RGB 
                         vis_source,
                         np.zeros_like(target,dtype= np.uint8)])     
@@ -75,17 +76,19 @@ def eval_draw_diff (target, source, tileRange_ls= None) :
     Fast binarization, randomly selection some region, take the medium
      of the thresholds
     '''
-    crop_weights, crop_heights = [20,20]
-    coord_x_ls = np.random.random_integers( 0 , vis_target.shape[0] - 100 , 200 )
-    coord_y_ls = np.random.random_integers( 0 , vis_target.shape[1] - 100 , 200 )
+    crop_weights, crop_heights = [50,50]
+    coord_x_ls = np.random.random_integers( 0 , vis_target.shape[0] - 100 , 50 )
+    coord_y_ls = np.random.random_integers( 0 , vis_target.shape[1] - 100 , 50 )   # 50 cropps
 
+    '''Fast otsu, randomly select 50 crops and take the median of the cropped thres'''
     thres_source_target = []
     for vis_img in [vis_source, vis_target] : 
         thres_ls = []
         for coord_x,coord_y in zip(coord_x_ls, coord_y_ls ):
-            vis_crop = vis_source[coord_x:coord_x+crop_weights,
-                                  coord_y:coord_y+crop_heights,:]
-            if len( np.unique( vis_crop) )> 0:
+            vis_crop = vis_img[ coord_x:coord_x+crop_weights,
+                                coord_y:coord_y+crop_heights]
+            # import pdb; pdb.set_trace()
+            if len( np.unique( vis_crop) )> 1:
                 thres_ls.append( threshold_otsu(vis_crop) )
         thres_source_target.append( np.median(thres_ls) )
     #

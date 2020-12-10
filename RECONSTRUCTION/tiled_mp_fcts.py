@@ -50,8 +50,9 @@ def featureExtract_tiled(img, paras, tileRange_ls, verbose = False):
         pool.join()
         # load results
         keypoint_alltiles   = np.zeros((1,2))
-        descriptor_alltiles = np.zeros((1,32))   # skimage for 256, cv2 for 32
-        
+        # descriptor_alltiles = np.zeros((1,32))   # skimage for 256, cv2 for 32
+        descriptor_alltiles = np.zeros((1, 32)) if paras.keypoint_tool == "cv2" else np.zeros((1, 256))     # cv2, 8bit  32
+
 
         for r_i, r in enumerate( async_result):
             if verbose:
@@ -74,7 +75,7 @@ def orb_detect_tiled(img, paras, tileRange_ls,verbose = False ):
     # In order to feature extraction over all regions in the image, we will apply feature extraction tiled by tile
     # crop image into tiles and extract keypointss
     keypoint_alltiles   = np.zeros((1, 2))
-    descriptor_alltiles = np.zeros((1, 32))      # cv2, 8bit  32
+    descriptor_alltiles = np.zeros((1, 32)) if paras.keypoint_tool == "cv2" else np.zeros((1, 256))     # cv2, 8bit  32
     if verbose:
         print ("$"*5 + "[Debug point 0]" )
         print ("len(tileRange_ls)=", len(tileRange_ls))
@@ -85,32 +86,48 @@ def orb_detect_tiled(img, paras, tileRange_ls,verbose = False ):
         if  crop_img.max() >0 and min(crop_img.shape)>1:              
             # only tiles contain enough engergy (obvious contrast of adjacent pixels) have keypoints                
             tile_n_keypoints = int(paras.n_keypoints / paras.tiles_numbers)  # past average distribute
-
-            ''' skimage
-            orb = ORB(n_keypoints = tile_n_keypoints,
-                    fast_threshold = paras.fast_threshold,
-                    harris_k = paras.harris_k)
             
-            #  if without this step, orb.detect_and_extract will return error
-            orb.detect(crop_img)
-            if verbose:
-                print ("$"*5 + "[Debug point 2]" )
-                print ("\tPre check whether keypoints are detected or not")
-                print ("\tlen(orb.scales)= " , len(orb.scales))
-            '''
             #compute the descriptors with ORB
-            orb = cv2.ORB_create( nfeatures=paras.n_keypoints, scoreType=cv2.ORB_FAST_SCORE)
-            kp, descriptor = orb.detectAndCompute(crop_img, None)
-            if len(kp) > 0:
-                keypoints0 = cv2.KeyPoint_convert(kp)
-                keypoint = keypoints0 + np.tile([tileRange[0], tileRange[1]],
-                                                (len(keypoints0), 1))           # add the crop coordinate shift
+            
+            if paras.keypoint_tool == "skimage":
+                
+                orb = ORB(n_keypoints = tile_n_keypoints,
+                        fast_threshold = paras.fast_threshold,
+                        harris_k = paras.harris_k)
+                #  if without this step, orb.detect_and_extract will return error
+                orb.detect(crop_img)
                 if verbose:
-                    print("\t" ,"t_i=",t_i,"shape=",crop_img.shape, "orb_detect_tiled : = ", keypoint.shape[0])
-                
-                keypoint_alltiles   = np.concatenate((keypoint_alltiles  , keypoint  ), axis=0)
-                descriptor_alltiles = np.concatenate((descriptor_alltiles, descriptor), axis=0)
-                
+                    print ("$"*5 + "[Debug point 2]" )
+                    print ("\tPre check whether keypoints are detected or not")
+                    print ("\tlen(orb.scales)= " , len(orb.scales))
+
+                if len(orb.scales) > 0:
+                    orb.detect_and_extract(crop_img)
+                    keypoints0 = orb.keypoints  # n by 2 array, n is number of keypoints
+                    keypoint = keypoints0 + np.tile([tileRange[0], tileRange[1]],
+                                                    (keypoints0.shape[0], 1))           # add the crop coordinate shift
+                    descriptor = orb.descriptors                                        # n by 256 array
+                    
+                    if verbose:
+                        print("\t\t" ,tileRange, "orb_detect_tiled : = ", keypoint.shape[0])
+
+                    keypoint_alltiles   = np.concatenate((keypoint_alltiles  , keypoint  ), axis=0)
+                    descriptor_alltiles = np.concatenate((descriptor_alltiles, descriptor), axis=0)
+
+            else:# paras.keypoint_tool == "cv2":
+
+                orb = cv2.ORB_create( nfeatures=paras.n_keypoints, scoreType=cv2.ORB_FAST_SCORE)
+                kp, descriptor = orb.detectAndCompute(crop_img, None)
+                if len(kp) > 0:
+                    keypoints0 = cv2.KeyPoint_convert(kp)
+                    keypoint = keypoints0 + np.tile([tileRange[0], tileRange[1]],
+                                                    (len(keypoints0), 1))           # add the crop coordinate shift
+                    if verbose:
+                        print("\t" ,"t_i=",t_i,"shape=",crop_img.shape, "orb_detect_tiled : = ", keypoint.shape[0])
+                    
+                    keypoint_alltiles   = np.concatenate((keypoint_alltiles  , keypoint  ), axis=0)
+                    descriptor_alltiles = np.concatenate((descriptor_alltiles, descriptor), axis=0)
+                    
 
     keypoint_all    = keypoint_alltiles     [1:, :]
     descriptor_all  = descriptor_alltiles   [1:, :]
@@ -120,7 +137,8 @@ def orb_detect_tiled(img, paras, tileRange_ls,verbose = False ):
 
 
 def match_descriptors_tiled (keypoints0,descriptors0,keypoints1,descriptors1,
-                             target_shape, tileRange_ls ,ck_shift = 30,verbose = False):
+                             target_shape, tileRange_ls ,ck_shift = 30,match_perc=1.0,
+                             verbose = False):
     # print (" \n''' match_descriptors_tiled ")
     ck_tileRange_ls = []
     src   = np.zeros((1, 2))
@@ -154,9 +172,8 @@ def match_descriptors_tiled (keypoints0,descriptors0,keypoints1,descriptors1,
             [sort_dh.append( dh_all[tile_matches01[i,:][0],tile_matches01[i,:][1]] )for i in range( len(tile_matches01))]
             sort_index = np.argsort(sort_dh)
             
-            GOOD_MATCH_PERCENT = 0.5 #e.g.0.30                                             # Jahandar
-            numGoodMatches = int(len(sort_index) * GOOD_MATCH_PERCENT)
-            
+            # match_perc = 0.3 #e.g.0.30                                   # extract he first % mathced keypoints e.g.0.3
+            numGoodMatches = max(1, int(len(sort_index) * match_perc))
             # print ("numGoodMatches=", numGoodMatches)
 
             # tile_matches01 = tile_matches01[sort_index]                         # ascending order of dist
@@ -181,8 +198,8 @@ def match_descriptors_tiled (keypoints0,descriptors0,keypoints1,descriptors1,
             # Sort matches by score
             matches.sort(key=lambda x: x.distance, reverse=False)
             # Remove not so good matches
-            GOOD_MATCH_PERCENT = 0.15
-            numGoodMatches = int(len(matches) * GOOD_MATCH_PERCENT)
+            match_perc = 0.15
+            numGoodMatches = int(len(matches) * match_perc)
             matches = matches[:numGoodMatches]
             # Extract location of good matches
             target_points = np.zeros((len(matches), 2), dtype=np.float32)
@@ -204,7 +221,8 @@ def transfromest_tiled(keypoints0,descriptors0,keypoints1,descriptors1, paras, t
         src,dst = match_descriptors_tiled (keypoints0, descriptors0,
                                          keypoints1,descriptors1, 
                                          paras.target_shape, tilerange_ls,
-                                         ck_shift = paras.ck_shift)        
+                                         ck_shift = paras.ck_shift,
+                                         match_perc = paras.match_perc)        
     else:                              # use multiprocess option
         # set numofthreads
         if str(paras.multiprocess).isnumeric():
@@ -226,7 +244,7 @@ def transfromest_tiled(keypoints0,descriptors0,keypoints1,descriptors1, paras, t
                         pool.apply_async( 
                                 match_descriptors_tiled, ( 
                                         keypoints0,descriptors0,keypoints1,descriptors1, 
-                                        paras.target_shape, tilerange_ls_mp ,ck_shift
+                                        paras.target_shape, tilerange_ls_mp ,ck_shift,paras.match_perc
                                     )))  # tuple of args for foo
                 if verbose:
                     print("\tmulti thread for", th, " ... ,","len(tilerange_ls_mp)=",len(tilerange_ls_mp))

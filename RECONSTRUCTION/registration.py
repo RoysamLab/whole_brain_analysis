@@ -67,52 +67,75 @@ from ransac_tile import ransac_tile
 
 class Paras(object):
     def __init__(self):
+
+        # Parameters for tiling
+        self.target_shape = (4000,8000)
+        self.tile_shape = (1000, 1000)         # # the smaller the tilling, longer the time, better the results
+        self.multiprocess = False
+        self.crop_overlap = 10  
+
         # Parameters for ORB
         self.n_keypoints = 300000
         self.fast_threshold = 0.08
         self.harris_k = 0.1
 
-        # Parameters for skimage.measure.ransac
+
+        # Parameters for keypoint matching
+        self.match_perc= 1.0 # percentarge of best match keypoints to keep in each tile  (1-0)
+        self.keypoint_dir = None
+        self.ck_shift = 100  # check window dilation width for seaching robust keypoint   # 50
+        self.keypoint_tool= "cv2"           # cv2 or skimage
+
+        # Parameters for ransac model estrimation
         self.min_samples = 5
         self.residual_threshold = 5  # default =1, 7
-        self.max_trials = 2000
+        self.max_trials = 1000
         self.random_state = 42 #230
+        self.ransac_obj= "inlier_num"           #[ "inlier_num","inlier_tile", "residuals_sum", "fast_diff"]
+        self.ds_rate= 20                      #ransac_downscale rate: int > 1
 
         # other user defined paras:
-        self.target_shape = (4000,8000)
-        self.tile_shape = (1000, 1000)         # # the smaller the tilling, longer the time, better the results
-        self.multiprocess = False
-        self.ck_shift = 100  # check window dilation width for seaching robust keypoint   # 50
-        self.crop_overlap = 10  
-        self.err_thres = 1.5
-        self.keypoint_dir = None
         self.demo = False
         self.bootstrap = True
         self.imadjust = True
-        self.pre_register = False
+
+        # self.pre_register = False
 
     def display(self):
-        print("============================\n")
-        print("Parameters for ORB : ")
+        print("============================")
+        print("\nParameters for tiling : ")
+        print("\ttile_shape = ", self.tile_shape)
+        print("\ttarget_shape = ", self.target_shape)
+        print("\tck_shift = ", self.ck_shift)
+        print("\tcrop_overlap = ", self.crop_overlap)
+
+        print("\nParameters for ORB : ")
         print("\tn_keypoints = ", self.n_keypoints)
         print("\tfast_threshold = ", self.fast_threshold)
         print("\tharris_k = ", self.harris_k)
-        print("Parameters for skimage.measure.ransac : ")
+        print("\tkeypoint_dir = ", self.keypoint_dir)
+        print("\tkeypoint_tool = ", self.keypoint_tool)
+
+        print("\nParameters for ransac : ")
         print("\tmin_samples = ", self.min_samples)
         print("\tresidual_threshold = ", self.residual_threshold)
         print("\tmax_trials = ", self.max_trials)
         print("\trandom_state = ", self.random_state)
-        print("other user defined paras: ")
-        print("\ttile_shape = ", self.tile_shape)
+        print("\tds_rate = ", self.ds_rate)
+
+
+        print("\nParameters for matching : ")
+        print("\tmatch_perc = ", self.match_perc)
+
+        print("\nother nParameters: ")
         print("\tmultiprocess = ", self.multiprocess)
-        print("\ttarget_shape = ", self.target_shape)
-        print("\tck_shift = ", self.ck_shift)
-        print("\tcrop_overlap = ", self.crop_overlap)
-        print("\tkeypoint_dir = ", self.keypoint_dir)
         print("\tdemo = ", self.demo)
         print("\tbootstrap = ", self.bootstrap)
         print("\timadjust = ", self.imadjust)
-        print("\pre_register = ", self.pre_register)
+        print("\transac_obj = ", self.ransac_obj)
+
+        print("============================")
+
 
 def spl_tiled_data (data, tileRange_ls ,paras):
     spl_tile_ls = []
@@ -156,49 +179,6 @@ def local_register(target0,source0,paras):
                                 )      
     print ("Local register:detect keypoints",descriptors0.shape[0], "matched",sum(matches01))
     return model_robust01
-
-def mini_register(target,source,paras,
-                  keypoints0=None,descriptors0 =None,keypoints1 = None,descriptors1 = None, ds_rate=2):
-    print ("\n#### mini_register")   
-    print ( "target.shape= ", target.shape)
-    
-    model_robust01 = None    # initailze to none
-    inliers = None
-    src = np.zeros((0,2))
-    dst = np.zeros((0,2))
-    paras.display()
-    # define new tile ranges
-    exam_tileRange_ls    = vis_fcts.crop_tiles(  ( target.shape[0],target.shape[1] ),
-                                              ( int(paras.tile_shape[0]/ds_rate), int(paras.tile_shape[1]/ds_rate)),
-                                                   paras.crop_overlap)  
-    if keypoints0 is None or keypoints1 is None :        
-        keypoints0, descriptors0 = tiled_fcts.featureExtract_tiled(source, paras, exam_tileRange_ls)  # keypoints0.max(axis=1)
-        keypoints1, descriptors1 = tiled_fcts.featureExtract_tiled(target, paras, exam_tileRange_ls)  # keypoints0.max(axis=1)
-
-    if keypoints0.shape[0] > paras.min_samples and  keypoints1.shape[0] > paras.min_samples :
-        src,dst =  tiled_fcts.match_descriptors_tiled(keypoints0,descriptors0,keypoints1,descriptors1,
-                                      target.shape, exam_tileRange_ls ,
-                                      ck_shift = paras.ck_shift)          
-    print ("Matched keypoins = ", src.shape[0] )          
-    # import pdb;pdb.set_trace()
-
-    if src.shape[0] > paras.min_samples:
-        kps = (src, dst)                 
-        spl_tile_ls, spl_tile_dic = spl_tiled_data ( kps , exam_tileRange_ls, paras)
-        model_robust01, inliers = ransac_tile(kps, AffineTransform,
-                                                    min_samples         = paras.min_samples, 
-                                                    residual_threshold  = paras.residual_threshold,
-                                                    max_trials          = paras.max_trials,
-                                                    random_state        = paras.random_state,
-                                                    spl_tile_ls         = spl_tile_ls,
-                                                    verbose             = False)      
-        
-    if inliers is not None:
-        print ("\t min-inliers%  =" , ( inliers.sum()/len(inliers)) *100 )
-    else:
-        model_robust01 = None # Registration failed, not remove 
-
-    return model_robust01
     
 def select_keypointsInMask(kp, binmask):
     # kp = N by 2
@@ -209,9 +189,24 @@ def select_keypointsInMask(kp, binmask):
             selected_kp[i] = True                 
     return selected_kp
 
+def fast_error_estimate(model,source, target):    
+    '''
+    error = binary_diff.sum()/binary_target.sum()* 100   # smaller the better
+    '''
+    source_warped = warp(source, inverse_map = model.inverse, 
+                                 output_shape = target.shape, cval=0)             # float64
+
+    # source_warped = warp(source0_ds, inverse_map = model_tf.inverse,  output_shape = target0_ds.shape, cval=0)             # float64
+    if source_warped.max() == 0 :
+        return np.inf
+    else:
+        __, __,__,error,__ = vis_fcts.eval_draw_diff ( target, source_warped )                   
+
+        return error
+
 def registrationORB_tiled(targets, sources, paras, output_dir, 
                           save_target=True, 
-                          keypoints1=None, descriptors1=None, pre_register=False, verbose =0):    
+                          keypoints1=None, descriptors1=None,  verbose =0):    
     t_0 = time.time()    
     target0 = []  # only use target 0 and source 0 for keypoint extraction
     source0 = []
@@ -221,7 +216,6 @@ def registrationORB_tiled(targets, sources, paras, output_dir,
         if key_id == 0:
             with tiff.TiffFile(targets[t_key]) as tif:
                 target0 = tif.asarray(memmap=True)
-
             input_type = target0.dtype
             target0 = rgb2gray(target0) if target0.ndim == 3 else target0
             # print("Process ", t_key, " as target0", "target0.shape = ", target0.shape)
@@ -273,35 +267,6 @@ def registrationORB_tiled(targets, sources, paras, output_dir,
         print ("tile_shape=" ,tile_shape)
         print("number of the tiles = ", paras.tiles_numbers)
         print("tileRange_ls[0] = ", tileRange_ls[0] )
-
-    ''' 0. Preregister '''
-
-    if paras.pre_register == True:   # precalculate the downscaled pregistration
-        ds_rate = 10
-        target_resized = resize(target0, (source0.shape[0] // ds_rate, source0.shape[1] // ds_rate),
-                       anti_aliasing=True)
-        source_resized = resize(source0, (source0.shape[0] // ds_rate, source0.shape[1] // ds_rate),
-                        anti_aliasing=False)
-        print ("DS shape=", source_resized.shape)
-        mini_paras = paras
-        mini_paras.target_shape =  target_resized.shape
-        mini_paras.tile_shape = ( int(paras.tile_shape[0]/ds_rate), int(paras.tile_shape[1]/ds_rate) ) 
-        mini_paras.ck_shift = int(paras.ck_shift/ds_rate)
-        mini_paras.crop_overlap = int(paras.crop_overlap/ds_rate)
-        mini_paras.n_keypoints = int(paras.n_keypoints/(ds_rate))
-
-        model_pre = local_register(target_resized,source_resized,mini_paras)    # extract the model inverse map from CHN0        
-
-        source0 = warp(source0, inverse_map = model_pre.inverse, 
-                                output_shape = paras.target_shape, cval= 0)   
-        if paras.demo:
-            # vis_pre, __,__,error,__ = vis_fcts.eval_draw_diff ( img_as_ubyte(target0),                                                            
-            #                                                img_as_ubyte(source0) )                   
-            # vis_diff_resized = resize(vis_pre, (source0.shape[0] // ds_rate, source0.shape[1] // ds_rate),
-            #                     anti_aliasing=False)
-            # print ("Pre-error=", '%.1f'%error)                    
-            io.imsave(os.path.join(output_dir,"-PreRegister"+ source0_key +".tif"),
-                        img_as_ubyte(source0) )        
 
     print(''' 1.1.  EXTRACT KEYPOINTS ''')
     if paras.keypoint_dir == None:
@@ -355,37 +320,66 @@ def registrationORB_tiled(targets, sources, paras, output_dir,
                                                 ( int( tile_height/2), int( tile_width/2)))  
     spl_tile_ls, spl_tile_dic = spl_tiled_data ( (src, dst) , exam_tileRange_ls, paras)
 
-    print ("Ransac_tile: remove outliers" )   # try out all the transforma until the non transoformation has found
-    inlier_rate_max = 0
-    paras.residual_threshold = 10
-    paras.min_samples = 4 
+    print ("Ransac_tile: estimate the transformation" )   # try out all the transforma until the non transoformation has found
+    estimated_error_min = np.inf
 
-    for tf_it in range(10): # run for a few iterations for different parameters
-        print ("\ntfrom iteration =", tf_it)
-        for tform in [ AffineTransform,ProjectiveTransform, SimilarityTransform]:        
+    '''run for a few iterations for different parameters'''
+    # define the downscales size for fast evaluation
+    ds_rate = 1
+    source0_ds = cv2.resize(source0, (source0.shape[0] // ds_rate, source0.shape[1] // ds_rate))  
+    target0_ds = cv2.resize(target0, (target0.shape[0] // ds_rate, target0.shape[1] // ds_rate))  
+
+    #paras.ransac_obj= "fast_diff"
+    for tform in [ AffineTransform,ProjectiveTransform]:  #, SimilarityTransform]:        
+        if paras.ransac_obj == "fast_diff":
             model_tf, inliers_tf = ransac_tile((src, dst), tform,
-                                    min_samples         = max( 3, paras.min_samples- tf_it ) , 
-                                    residual_threshold  = paras.residual_threshold + 5*tf_it,
-                                    max_trials          = paras. max_trials + 500*tf_it,
+                                    max_trials          = paras.max_trials,
+                                    min_samples         = paras.min_samples,                #  not matter for "fast_diff"
+                                    residual_threshold  = paras.residual_threshold,
                                     random_state        = paras.random_state,
                                     spl_tile_ls         = spl_tile_ls,
-                                    verbose             = paras.demo)  
-            
-            inlier_rate = ( inliers_tf.sum()/len(inliers_tf)) *100
+                                    verbose             = False, #paras.demo, 
+                                    obj_type            = "fast_diff",
+                                    source_target       = [source0_ds,target0_ds]
+                                    )  
+            estimated_error = fast_error_estimate(model_tf,source0_ds, target0_ds)
+
             if np.all(np.isnan(model_tf.params)) == False :               # only save the model if not Nan
-                if inlier_rate > inlier_rate_max:
-                    print ( tform, "inliers%  =" , '%.2f'%inlier_rate )            
+                if estimated_error < estimated_error_min:
                     model_robust01 = model_tf
-                    inlier_rate_max = inlier_rate
                     inliers = inliers_tf
+                    estimated_error_min=  estimated_error           # update the min error
+                    print ( "\t[Valid]estimated_error%  =" , '%.2f'%estimated_error )  
+        else:
+            for min_samples in range(3,7):
+                for residual_threshold in range(1,10):
+                    model_tf, inliers_tf = ransac_tile((src, dst), tform,
+                                            max_trials          = paras.max_trials,
+                                            min_samples         = min_samples,               
+                                            residual_threshold  = residual_threshold,
+                                            random_state        = paras.random_state,
+                                            spl_tile_ls         = spl_tile_ls,
+                                            verbose             = False, #paras.demo,
+                                            obj_type            = paras.ransac_obj
+                                           )  
+                    estimated_error = fast_error_estimate(model_tf,source0_ds, target0_ds)
 
-        if inlier_rate_max > 0  :             
-            break
+                    # import pdb;pdb.set_trace()
 
+                    if np.all(np.isnan(model_tf.params)) == False :               # only save the model if not Nan
+                        if estimated_error < estimated_error_min:
+                            model_robust01 = model_tf
+                            inliers = inliers_tf
+                            estimated_error_min=  estimated_error           # update the min error
+                            print ( "\t[Valid]estimated_error%  =" , '%.2f'%estimated_error )                      
+
+    assert model_robust01 is not None                                   # if source wraped ==0, then 9 
     assert np.all(np.isnan(model_robust01.params)) == False            # make sure the model is not nan  
 
-    print ("\t Final inliers%  =" , '%.2f'%inlier_rate_max )
-    
+    print ("\n Final testimated_error%  =" , '%.2f'%estimated_error_min )
+    t_transformEstimation = time.time()
+    print("[Timer] Transform used time (h) =", str((t_transformEstimation-t_matchKyepoint) / 3600))
+
     print("\n",''' 3. Image Warping''')
     # we must warp, or transform, two of the three images so they will properly align with the stationary image.    
     # Apply same offset on all rest images       
@@ -406,10 +400,7 @@ def registrationORB_tiled(targets, sources, paras, output_dir,
         source = rgb2gray(source) if source.ndim == 3 else source               # uint16
         
         source = vis_fcts.check_shape(source,paras.target_shape)                # make sure the source image is the same size to target      
-        if paras.pre_register==True:
-            source = warp(source, inverse_map = model_pre.inverse, 
-                                 output_shape = paras.target_shape)             # float64
-                     
+
         # source_warped = cv2.warpPerspective(source, model_robust01, paras.target_shape)        # LMEDS
 
         source_warped = warp(source, inverse_map = model_robust01.inverse, 
@@ -443,8 +434,7 @@ def registrationORB_tiled(targets, sources, paras, output_dir,
             if paras.demo == True:                         
                 vis_diff =  vis_fcts.differenceVis (inital_diff ,dst, inliers, bsBoost_tileRange_ls, diff_label_final )                        
                 print (" Before : error:",error)      
-                vis_diff_resized = resize(img_as_ubyte(vis_diff), (vis_diff.shape[0]  // 2 , vis_diff.shape[1] // 2) ,
-                                                        mode = "constant")
+                vis_diff_resized = cv2.resize(img_as_ubyte(vis_diff), (vis_diff.shape[0]  // 2 , vis_diff.shape[1] // 2))
                 io.imsave(os.path.join(output_dir, source_key.split(".")[0] + "-BeforeErr"+ '%.1f'%error+"%_diffVis.jpg"),
                             vis_diff_resized )        
 #         else:
@@ -532,8 +522,7 @@ def registrationORB_tiled(targets, sources, paras, output_dir,
             vis, binary_diff,__,error,__= vis_fcts.eval_draw_diff (img_as_ubyte(target0),                                                            
                                                         img_as_ubyte(source_warped))              
             print (" After : error:",error)                    
-            vis_resized = resize(img_as_ubyte(vis), (vis.shape[0] // 2, vis.shape[1] // 2),
-                                 mode ='constant')  
+            vis_resized = cv2.resize(img_as_ubyte(vis), (vis.shape[0] // 2, vis.shape[1] // 2))  
             io.imsave(os.path.join(output_dir, source_key.split(".")[0] + "_registeredVis.jpg"),
                          vis_resized)
             if bootstrap == False:
@@ -543,8 +532,7 @@ def registrationORB_tiled(targets, sources, paras, output_dir,
                 vis_diff =  vis_fcts.differenceVis (binary_diff ,dst, inliers,
                                            bsBoost_tileRange_ls,diff_label_final)
                 
-            vis_diff_resized = resize(img_as_ubyte(vis_diff), (vis.shape[0]  // 2 , vis.shape[1] // 2) ,
-                                                    mode = "constant")
+            vis_diff_resized = cv2.resize(img_as_ubyte(vis_diff), (vis.shape[0]  // 2 , vis.shape[1] // 2))
             io.imsave(os.path.join(output_dir, source_key.split(".")[0] + "-Err"+ '%.1f'%error+"%_diffVis.jpg"),
                         vis_diff_resized )
         
@@ -557,23 +545,32 @@ def registrationORB_tiled(targets, sources, paras, output_dir,
 def registration (input_dir,output_dir,target_round = "R2", imadjust = True,
                   multiprocess = True, keypoint_dir = None,bootstrap =False,
                   demo = False , tiling = "1000,1000" ,nKeypoint=  200000, 
-                  ck_shift = 200, crop_overlap =50,residual_threshold =5,min_samples =5,pre_register = False):
+                  ck_shift = 200, crop_overlap =50,residual_threshold = 5,min_samples = 6,
+                  ransac_obj= "inlier_num",keypoint_tool = "cv2",match_perc=1.0,ds_rate =10):
     # Parameters
+
+
     print("Setting Parameteres:========")
     paras = Paras()
-    paras.n_keypoints = nKeypoint
-    paras.ck_shift = (ck_shift)
-    paras.crop_overlap = crop_overlap
-    paras.min_samples = min_samples
+    paras.n_keypoints        = nKeypoint
+    paras.ck_shift           = ck_shift
+    paras.crop_overlap       = crop_overlap
+    paras.min_samples        = min_samples
     paras.residual_threshold = residual_threshold
+    paras.match_perc         = match_perc
+    paras.ds_rate            = ds_rate
 
     paras.multiprocess  = False if str(multiprocess).lower() in ["f", "0", "false"] else multiprocess
     paras.keypoint_dir  = keypoint_dir
+    paras.ransac_obj    = ransac_obj    
+    paras.keypoint_tool = keypoint_tool
     paras.bootstrap     = str2bool(bootstrap)
     paras.demo          = str2bool(demo) 
     paras.imadjust      = str2bool(imadjust) 
-    paras.pre_register  = str2bool(pre_register)
 
+    assert paras.keypoint_tool in ["cv2","skimage"]
+    assert paras.min_samples >=3
+    assert ( paras.match_perc>0 and paras.match_perc <=1.0)
     # import pdb;pdb.set_trace()
     # paras.display()
     if "," in tiling:
@@ -582,7 +579,7 @@ def registration (input_dir,output_dir,target_round = "R2", imadjust = True,
         paras.tile_shape =[]  # no tiling, cautious might be extremely slow!
 
     if os.path.exists(output_dir) is False:
-        os.mkdir(output_dir)           
+        os.makedirs(output_dir)           
 
     #    Set_name = os.listdir(args.input_dir)[1].split("_")[0] + "_"
     input_dir_image = [f for f in os.listdir(input_dir) if f.endswith('.tif')]
@@ -706,8 +703,7 @@ def main():
                             help='whether to adjust the image for feature extraction')    
     parser.add_argument('--bootstrap', required=False, default = 'False',type = str, 
                             help='whether to adopt bootstrap to enhance registration')    
-    parser.add_argument('--pre_register', required=False, default = 'F',type = str, 
-                            help='whether to adopt pre-registration on downscaled image ')    
+ 
     parser.add_argument('--targetRound', required=False, default='R2', type=str,
                         help="keyword for target round")        
     parser.add_argument('-t', '--tiling', required=False, default="1000,1000", type=str,
@@ -718,9 +714,16 @@ def main():
                         help=" check window dilation width for seaching robust keypoint") # or 10
     parser.add_argument( '--residual_threshold', required=False, default=5, type=int,
                         help=" residual_threshold for ransac")
+    parser.add_argument( '--ds_rate', required=False, default=10, type=int,
+                        help=" downscale rate for fast performance  evaluation")
     parser.add_argument( '--min_samples', required=False, default=5, type=int,
                         help=" min_samples for ransac")
-                        
+    parser.add_argument( '--match_perc', required=False, default=1.0, type=float,
+                        help=" match_perc for matching keypoints")
+    parser.add_argument( '--ransac_obj', required=False, type=str,default= "inlier_num",
+                        help="evaluation function for ransac,in [ 'inlier_num' 'inlier_tile' 'residuals_sum' 'fast_diff']")                        
+    parser.add_argument( '--keypoint_tool', required=False, type=str,default= "cv2",
+                        help="package for keypoint extraction 'cv2' or 'skimage' ")      
     args = parser.parse_args()
     #%%
     tic = time.time()
@@ -739,7 +742,10 @@ def main():
                   crop_overlap          = args.crop_overlap,
                   residual_threshold    = args.residual_threshold,
                   min_samples           = args.min_samples,
-                  pre_register          = args.pre_register,
+                  ransac_obj            = args.ransac_obj,
+                  keypoint_tool         = args.keypoint_tool,
+                  match_perc            = args.match_perc,
+                  ds_rate               = args.ds_rate
                   )
 
     toc = time.time()

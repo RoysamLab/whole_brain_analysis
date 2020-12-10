@@ -8,6 +8,8 @@ import numpy as np
 from sklearn.utils import check_random_state
 from random import sample
 import random
+import vis_fcts as vis_fcts
+from skimage.transform import warp
 
 def _dynamic_max_trials(n_inliers, n_samples, min_samples, probability):
     """Determine number trials such that at least one outlier-free subset is
@@ -87,37 +89,12 @@ def random_select_tile (spl_tile_ls,min_samples, crucial_id_tile_ls = [] ):
          
     return selected_candidates
 
-    # crucial_candidates = np.array([],dtype= np.int)  
-    
-    # must_candidates =  np.array([],dtype= np.int)  
-    # # select the crucial_id_tile_ls first, optional
-    # if len(crucial_id_tile_ls ) > 0:
-    #     for c_ti in crucial_id_tile_ls:
-    #         spl_tile_idxs = spl_tile_ls[c_ti]
-    #         random.shuffle(spl_tile_idxs)   
-    #         must_candidates = np.concatenate( ( must_candidates,
-    #                                          spl_tile_idxs[:1] ),
-    #                                          axis=0 )# make sure the miss tile have keypoint to select   
-    
-    # # gurantee each tile have one item to be select (uniform distribution)
 
-    # for s_i , spl_tile_idxs in enumerate( spl_tile_ls ) :   
-    #     if s_i not in crucial_id_tile_ls:
-    #         random.shuffle(spl_tile_idxs)          
-    #         crucial_candidates = np.concatenate( ( crucial_candidates,
-    #                                              spl_tile_idxs[:tile_select_ratio] ),
-    #                                              axis=0 )                 
-    # random.shuffle(crucial_candidates)
-    # selected_candidates = np.concatenate( ( must_candidates, 
-    #                                         crucial_candidates[:min_samples-must_candidates.shape[0]]  ), 
-    #                                      axis =0)
-
-    return selected_candidates
-
-def ransac_tile(data, model_class, min_samples, residual_threshold,
+def ransac_tile(data, model_class, min_samples =3, residual_threshold =5,
            is_data_valid=None, is_model_valid=None,
            max_trials=100, stop_sample_num=np.inf, stop_residuals_sum=0,
-           stop_probability=1, random_state=None, initial_inliers=None ,spl_tile_ls = None,verbose= False):
+           stop_probability=1, random_state=None, initial_inliers=None ,spl_tile_ls = None,verbose= False, obj_type = "inlier_num",
+           source_target= None):
     
     """Fit a model to data with the RANSAC (random sample consensus) algorithm.
     RANSAC is an iterative algorithm for the robust estimation of parameters
@@ -190,6 +167,9 @@ def ransac_tile(data, model_class, min_samples, residual_threshold,
         by `np.random`.
     initial_inliers : array-like of bool, shape (N,), optional
         Initial samples selection for model estimation
+    
+    obj_type:   [ "inlier_num","inlier_tile", "residuals_sum", "fast_diff"]
+
     Returns
     -------
     model : object
@@ -203,9 +183,11 @@ def ransac_tile(data, model_class, min_samples, residual_threshold,
     best_inlier_residuals_sum = np.inf
     best_inliers = None
     best_inlier_tile_mean =0
-    
+    best_fast_diff = np.inf    # estimated_error_min = 200
+
     random_state = check_random_state(random_state)
 
+    assert obj_type in [ "inlier_num","inlier_tile", "residuals_sum", "fast_diff"]
     # in case data is not pair of input and output, male it like it
     if not isinstance(data, (tuple, list)):
         data = (data, )
@@ -260,66 +242,99 @@ def ransac_tile(data, model_class, min_samples, residual_threshold,
         # optional check if estimated model is valid
         if is_model_valid is not None and not is_model_valid(sample_model, *samples):
             continue
-
-        sample_model_residuals = np.abs(sample_model.residuals(*data))
-        # consensus set / inliers       
-        sample_model_inliers = sample_model_residuals < residual_threshold        
-        sample_model_residuals_sum = np.sum(np.abs(sample_model_residuals))
+        
 
         # choose as new best model if number of inliers is maximal
-        sample_inlier_num = np.sum(sample_model_inliers)        
+        # define the critera
         
-        sample_inlier_tile_perc = [sample_model_inliers[a].sum() / len(sample_model_inliers[a])  
-                                        for a in spl_tile_ls]                  # inlier list over all tiles
-               
-        sample_inlier_tile_mean = np.mean(sample_inlier_tile_perc)      
-#        if sample_inlier_tile_mean > 0.4  :                                     # most of the ones has been selected correctly
-#            crucial_id_tile_ls = list( np.argsort(sample_inlier_tile_perc)[ :int(min_samples/2)]   )       #
 
-        if (           
-#              sample_inlier_tile_mean > best_inlier_tile_mean           #  # more inliersv p
-# #             same number of inliers but less "error" in terms of residuals
-#             or (    
-                 ( sample_inlier_num > best_inlier_num )
-                             and 
-                #     sample_model_residuals_sum < best_inlier_residuals_sum
-                # )
-                 ( np.all(np.isnan(sample_model.params)) == False) 
-        ):
+        if obj_type != "fast_diff":
+            sample_model_residuals = np.abs(sample_model.residuals(*data))
+            # consensus set / inliers       
+            sample_model_inliers = sample_model_residuals < residual_threshold      
+
+            if obj_type =="inlier_num":
+                sample_inlier_num = np.sum(sample_model_inliers)       
+                critera = ( sample_inlier_num > best_inlier_num )
+
+            elif obj_type =="inlier_tile":
+                sample_inlier_tile_perc = [sample_model_inliers[a].sum() / len(sample_model_inliers[a])  
+                                                for a in spl_tile_ls]                  # inlier list over all tiles
+                sample_inlier_tile_mean = np.mean(sample_inlier_tile_perc)   
+                critera = (sample_inlier_tile_mean > best_inlier_tile_mean)
+
+            elif obj_type =="residuals_sum":
+                sample_model_residuals_sum = np.sum(np.abs(sample_model_residuals))
+
+                critera = (sample_model_residuals_sum < best_inlier_residuals_sum)
+        else:
+            # import pdb;pdb.set_trace()
+            __, __,__,estimated_error,__ = vis_fcts.eval_draw_diff ( source_target[1], 
+                                                              warp( source_target[0], 
+                                                                    inverse_map = sample_model.inverse, 
+                                                                    output_shape = source_target[1].shape, cval=0) )    
+
+            critera = ( estimated_error < best_fast_diff)
+            # import pdb;pdb.set_trace()
+
+        # update best
+        update_indicator = False
+        if ( critera and ( np.all(np.isnan(sample_model.params)) == False) ):
             best_model = sample_model
-            best_inlier_num = sample_inlier_num
-            best_inlier_tile_mean = sample_inlier_tile_mean 
-            best_inlier_residuals_sum = sample_model_residuals_sum
-            best_inliers = sample_model_inliers
-            dynamic_max_trials = _dynamic_max_trials(best_inlier_num,
+            update_indicator = True
+            if obj_type != "fast_diff":
+                best_inliers = sample_model_inliers
+                if obj_type =="inlier_num":
+                    best_inlier_num = sample_inlier_num
+                    dynamic_max_trials = _dynamic_max_trials(best_inlier_num,
                                                      num_samples,
                                                      min_samples,
                                                      stop_probability)
+                    if (best_inlier_num >= stop_sample_num) or (num_trials >= dynamic_max_trials):
+                        break
+                    
+                    if verbose is True:
+                        print("-iter: ", num_trials, "spl_idxs=", spl_idxs,
+                            "sample_inlier_num=", '%.2f'%( best_inlier_num/len(best_inliers)))
 
-            if max( sample_inlier_tile_perc) == 0:                                     # skip the failed trail
-                max_trials +=1
-                
-            if (best_inlier_num >= stop_sample_num
-                or best_inlier_residuals_sum <= stop_residuals_sum
-                or num_trials >= dynamic_max_trials):
-                break
-            
-            if verbose is True:
-                print("-iter: ", num_trials, "spl_idxs=", spl_idxs,
-                  "sample_inlier_num=", '%.2f'%( best_inlier_num/len(best_inliers)))
+                elif obj_type =="inlier_tile":
+                    best_inlier_tile_mean = sample_inlier_tile_mean 
+
+                elif obj_type =="residuals_sum":
+                    best_inlier_residuals_sum = sample_model_residuals_sum
+                    if best_inlier_residuals_sum <= stop_residuals_sum:
+                        break
+
+            else:
+                best_fast_diff = estimated_error
+                # import pdb;pdb.set_trace()
+
                     
     # estimate final model using all inliers
-    if best_inliers is not None:
-        # in case num(best_inliers) too large,  model.estimate run out of memory
-        best_inliers_subset= np.zeros_like(best_inliers)
+    if update_indicator == True :
+        # calculate the inliner 
+        sample_model_residuals = np.abs(best_model.residuals(*data))
+        # consensus set / inliers       
+        best_inliers = sample_model_residuals < residual_threshold      
+        
+        best_inliers_subset = np.zeros_like(best_inliers)
         # import pdb;pdb.set_trace()
         spl_idxs = random_select_tile (spl_tile_ls, min(best_inliers.sum(), min_samples*1000) ) 
         best_inliers_subset[spl_idxs] = True
+
         # select a random subset of inliers for each data array
         best_inliers_subset = best_inliers_subset* best_inliers
         data_inliers = [d[best_inliers_subset] for d in data]
-        print ("Estimate the Best model...")
-        del sample_model,data,sample_inlier_tile_perc,sample_model_residuals,sample_model_inliers,success
+        if verbose == True:
+            print ("Estimate the Best model...")
+        del sample_model,data,success                 # in case num(best_inliers) too large,  model.estimate run out of memory
+
         best_model.estimate(*data_inliers)    
-        print ("Best Model generated")   
+        if verbose == True:
+            print ("Best Model generated")   
+
     return best_model, best_inliers
+
+
+
+
