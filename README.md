@@ -155,7 +155,7 @@ Parse the arguments to  `main_detection.py`:
 
 ### (Option2) From automatic MRCNN 
 #### Set up the enviroment for BrainCellSeg
-    Installyation Requirements:     Python 3.6, TensorFlow 1.3, Keras 2.0.8 and other common packages. 
+    Installyation Requirements:     Python 3.6, TensorFlow 2.1, and other common packages. 
     Highly recommend to install the GPU verison of Tensorflow
 
     ```
@@ -188,10 +188,10 @@ Parse the arguments to  `main_detection.py`:
   If you don't have pretrained weights, download the [mrcnn_weights.h5](https://drive.google.com/file/d/1fZ40eNuJ9LsbCRAjdxASvOkA4dEwXEzp/view?usp=sharing) to 'NUCLEAR_SEG/weights'
 
     ```bash
-    cd ..
+    cd ..    # path root folder
     python3 main_nucleiSeg.py detect \
     --dataset=NUCLEAR_SEG/data/multiplex.tif  \
-    --results=/path/to/output/dir \
+    --results=/path/to/output/dir 
     
     ```
 ## 3. Classification
