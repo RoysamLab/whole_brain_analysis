@@ -11,7 +11,7 @@
     $ cd SegmentationPipeline
 
    ####  Installyation Requirements:  
-   Python 3.6, TensorFlow 1.3, Keras 2.0.8 and other common packages. Highly recommend to install the GPU verison of Tensorflow
+   Python 3.6, **TensorFlow 2.1**,  and other common packages. Highly recommend to install the GPU verison of Tensorflow
 
    #### Option1 : CPU version
     $ pip install -r requirements_cpu.txt --user
