@@ -16,7 +16,7 @@
     $ python setup.py install --user
    
    #### Test demo
-   Download the pretrained_weights.h5 to the project root from [GoogleDrive](https://drive.google.com/open?id=12algdsF7hxoF6lLepRoDed36gBx-NkCD)
+   Download the pretrained_weights.h5 to ``{whole_brain_analysis_root}/NUCLEAR_SEG`` from [GoogleDrive](https://drive.google.com/open?id=12algdsF7hxoF6lLepRoDed36gBx-NkCD)
 
    ```
    $ python main_segmentation.py detect \
@@ -55,7 +55,7 @@
    $ mkdir results
    $ python3 ../main_nucleiSeg.py detect \
     --dataset=data/multiplex.tif \
-    --weights="pretrained_weights.h5" \
+    --weights=pretrained_weights.h5 \
     --results=results
    ```
 # Error shooting :
