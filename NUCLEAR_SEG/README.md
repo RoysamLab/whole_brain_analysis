@@ -8,24 +8,18 @@
     $ conda activate BrainCellSeg
     
    ####  Installyation Requirements:  
-   Python 3.6, **TensorFlow 2.1**,, Keras 2.0.8 and other common packages. Highly recommend to install the GPU verison of Tensorflow
+   Python 3.6, **TensorFlow 2.1**, and other common packages. Highly recommend to install the GPU verison of Tensorflow
 
-   #### Option1 : CPU version
-    $ pip install -r requirements_cpu.txt --user
-    $ python3 setup.py install --user
-
-   #### Option2 : GPU version
     $ module load cudatoolkit/10.1                      # confirmed good in Clusters: Sabine and Maui
+    $ cd {whole_brain_analysis_root}/NUCLEAR_SEG
     $ pip install -r requirements_gpu.txt --user
-    $ cd mrcnn_Seg
-    $ python3 setup.py install --user
-    $ cd ..                                           # the project root folder
+    $ python setup.py install --user
    
    #### Test demo
    Download the pretrained_weights.h5 to the project root from [GoogleDrive](https://drive.google.com/open?id=12algdsF7hxoF6lLepRoDed36gBx-NkCD)
 
    ```
-   $ python3 main_segmentation.py detect \
+   $ python main_segmentation.py detect \
     --dataset=demo/demo_input.jpeg \
     --weights="pretrained_weights.h5" \
     --toRGBOpt=1 \
@@ -57,8 +51,9 @@
 - Output:
    - `results`: label image of whole brain segmentation , located at /results
    ```
+   $ cd ..
    $ mkdir results
-   $ python3 main_nucleiSeg.py detect \
+   $ python3 ../main_nucleiSeg.py detect \
     --dataset=data/multiplex.tif \
     --weights="pretrained_weights.h5" \
     --results=results
