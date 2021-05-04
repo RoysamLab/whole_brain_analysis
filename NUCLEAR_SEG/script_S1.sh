@@ -1,4 +1,3 @@
-
 #!/bin/sh
 #SBATCH -o script_demo.outfile
 #SBATCH -e script_demo.errfile

@@ -111,3 +111,9 @@ venv.bak/
 # temp
 temp.py
 DETECTION/models/*
+
+# output
+NUCLEAR_SEG/output/*
+NUCLEAR_SEG/data
+*.errfile
+*.outfile

@@ -33,7 +33,7 @@ import datetime
 import numpy as np
 if "1.18" in np.version.version:
     np.random.bit_generator = np.random._bit_generator   #  error introduced by numpy 1.18 
-# import tifffile as tiff 
+# import file as tiff 
 import skimage
 from skimage import exposure, segmentation,io,img_as_ubyte,measure,morphology
 import skimage.external.tifffile as tiff 
@@ -831,7 +831,7 @@ if __name__ == '__main__':
                         metavar="[detect]/path/to/detection_result/",default = None,
                         help='directory for results, default = ROOT_DIR+"results/nucleus/") ')
         parser.add_argument('-bb','--bgBoost', required=False, 
-                            default = '20',type = int, 
+                            default = '0',type = int, 
                             help="background boosting max iterations")   
         parser.add_argument('-bz','--batch_size', required=False,
                             default = '1',type = str, 
@@ -863,9 +863,11 @@ if __name__ == '__main__':
         print ("loading whole brain image:", args.dataset)
 
         # whole image preprocessing    # not working ??
-        with tiff.TiffFile(args.dataset) as tif:
-            rawImage = tif.asarray(memmap=True)
-
+        if ".tif" in args.dataset:
+          with tiff.TiffFile(args.dataset) as tif:
+              rawImage = tif.asarray(memmap=True)
+        else:
+          rawImage = cv2.imread(args.dataset)
         # import pdb;pdb.set_trace()
         # rawImage = tiff.imread(args.dataset)
         if str2bool(args.imadjust):   # True

@@ -19,12 +19,15 @@
    Download the pretrained_weights.h5 to ``{whole_brain_analysis_root}/NUCLEAR_SEG`` from [GoogleDrive](https://drive.google.com/open?id=12algdsF7hxoF6lLepRoDed36gBx-NkCD)
 
    ```
-   $ python main_segmentation.py detect \
+   $ python ../main_nucleiSeg.py detect \
     --dataset=demo/demo_input.jpeg \
     --weights="pretrained_weights.h5" \
     --toRGBOpt=1 \
-    --results=demo\demo_out
+    --results=demo/demo_out 
    ```
+   | Input  | Output  |
+   | ---    | --- |
+   |<image src = "demo/demo_input.jpeg" width="50px" height="50px"></image> |<image src = "demo/demo_out/merged_result_borders.tif" width="50px" height="50px"></image> |
 
 ##  2.Prepare Dataset       
  If there is only one nuclear stained channel (e.g. only DAPI), skip this step
@@ -42,6 +45,9 @@
     --DAPI R2C1.tif \
     --HISTONES R2C2.tif 
    ```
+
+---
+---
 
 ##  3. Test Segmentation with MRCNN 
 
