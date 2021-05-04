@@ -27,11 +27,19 @@
    ```
    | Input  | Output  |
    | ---    | --- |
-   |<image src = "demo/demo_input.jpeg" width="150px" height="150px"></image> |<image src = "demo/demo_border.jpeg" width="150px" height="150px"></image> |
+   |<image src = "demo/demo_input.jpeg" width=200px" height="200px"></image> |<image src = "demo/demo_border.jpeg" width="200px" height="200px"></image> |
    
    - Output files:
-     - fTable_merged.csv: contain centroid and bouding box info, can directly use for CapsuleNet Classfication
-     - merged_result_borders.tif: blank and white border image, can directly cast on original image in Napari
+     - `merged_labelmask.h5`: pixel level label id of the segmentation result, same size as image. load by:
+         ```
+         import h5py
+         hf = h5py.File(`merged_labelmask.h5`, 'r')                                                             # load wholelabel use 9s
+         wholelabel = np.array(hf.get('seg_results'))
+         hf.close()
+         ```
+     - `merged_submission.csv`: whole image RLE code of segmentation result
+     - `fTable_merged.csv`: contain centroid and bouding box info, can directly use for CapsuleNet Classfication
+     - `merged_result_borders.tif`: blank and white border image for visulization, can directly cast on original image in Napari
 
 ##  2.Prepare Dataset       
  If there is only one nuclear stained channel (e.g. only DAPI), skip this step
@@ -50,8 +58,6 @@
     --HISTONES R2C2.tif 
    ```
 
----
----
 
 ##  3. Test Segmentation with MRCNN 
 
