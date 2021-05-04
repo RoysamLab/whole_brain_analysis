@@ -48,17 +48,6 @@
     --DAPI R2C1.tif \
     --HISTONES R2C2.tif 
    ```   
-   - Output files in `OUTPUT_DIR`
-     - `merged_labelmask.h5`: pixel level label id of the segmentation result, same size as image. load by:
-         ```
-         import h5py
-         hf = h5py.File(`merged_labelmask.h5`, 'r')                 # load wholelabel use 9s
-         wholelabel = np.array(hf.get('seg_results'))
-         hf.close()
-         ```
-     - `merged_submission.csv`: whole image RLE code of segmentation result
-     - `fTable_merged.csv`: contain centroid and bouding box info, can directly use for CapsuleNet Classfication
-     - `merged_result_borders.tif`: blank and white border image for visualization, can directly cast on original image in Napari
 
 ##  3. Test Segmentation with MRCNN 
 
@@ -75,6 +64,19 @@
     --weights=pretrained_weights.h5 \
     --results=results
    ```
+   
+   - Output files in `results` folder
+     - `merged_labelmask.h5`: pixel level label id of the segmentation result, same size as image. load by:
+         ```
+         import h5py
+         hf = h5py.File(`merged_labelmask.h5`, 'r')                 # load wholelabel use 9s
+         wholelabel = np.array(hf.get('seg_results'))
+         hf.close()
+         ```
+     - `merged_submission.csv`: whole image RLE code of segmentation result
+     - `fTable_merged.csv`: contain centroid and bouding box info, can directly use for CapsuleNet Classfication
+     - `merged_result_borders.tif`: blank and white border image for visualization, can directly cast on original image in Napari
+
 # Error shooting :
 
 AttributeError: module 'tensorflow.python.keras.utils.generic_utils' has no attribute 'populate_dict_with_module_objects'
