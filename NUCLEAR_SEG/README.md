@@ -27,7 +27,11 @@
    ```
    | Input  | Output  |
    | ---    | --- |
-   |<image src = "demo/demo_input.jpeg" width="50px" height="50px"></image> |<image src = "demo/demo_out/merged_result_borders.tif" width="50px" height="50px"></image> |
+   |<image src = "demo/demo_input.jpeg" width="150px" height="150px"></image> |<image src = "demo/demo_border.jpeg" width="150px" height="150px"></image> |
+   
+   - Output files:
+     - fTable_merged.csv: contain centroid and bouding box info, can directly use for CapsuleNet Classfication
+     - merged_result_borders.tif: blank and white border image, can directly cast on original image in Napari
 
 ##  2.Prepare Dataset       
  If there is only one nuclear stained channel (e.g. only DAPI), skip this step

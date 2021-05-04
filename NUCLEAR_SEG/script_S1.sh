@@ -1,6 +1,6 @@
 #!/bin/sh
-#SBATCH -o script_demo.outfile
-#SBATCH -e script_demo.errfile
+#SBATCH -o script_S1.outfile
+#SBATCH -e script_S1.errfile
 #SBATCH -N 1
 #SBATCH -t 120:00:00 
 #SBATCH --mem-per-cpu=100GB
@@ -17,11 +17,11 @@ cd $project_root
 
 
 # Prepare image
-python NUCLEAR_SEG/main_prepare_images.py \
---INPUT_DIR $data_root \
---OUTPUT_DIR NUCLEAR_SEG/data \
---DAPI S1_R2C1.tif \
---HISTONES S1_R2C2.tif 
+#python NUCLEAR_SEG/main_prepare_images.py \
+#--INPUT_DIR $data_root \
+#--OUTPUT_DIR NUCLEAR_SEG/data \
+#--DAPI S1_R2C1.tif \
+#--HISTONES S1_R2C2.tif 
 
 
 # Run segmentation/Detection
