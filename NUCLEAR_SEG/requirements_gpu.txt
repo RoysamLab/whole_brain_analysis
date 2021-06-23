@@ -12,7 +12,7 @@ cython
 matplotlib
 pandas
 IPython
-histomicstk
+
 tqdm
 
 setuptools>=41.0.0
