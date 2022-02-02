@@ -1,4 +1,11 @@
 # WHOLE BRAIN ANALYSIS PIPELINE
+
+This repository contains the source code for the paper:
+
+[Whole-brain tissue mapping toolkit using large-scale highly multiplexed immunofluorescence imaging and deep neural networks](https://www.nature.com/articles/s41467-021-21735-x)
+
+<br />
+
 This pipeline is for processing multispectral fluorescence 2D image datasets.
 It will correct the multiplexed images for:
 - Pixel-to-pixel registration due to stage misalignemnt between rounds
@@ -51,16 +58,16 @@ Setting up the environment and installing the requirements takes ~45 minutes.
 Parse the arguments to  `main_reconstruction.py`:
 ```bash
 python main_reconstruction.py \
-   --INPUT_DIR /brazos/roysam/datasets/TBI/G2_Sham_Trained/G2_BR#22_HC_13L/original \
-   --OUTPUT_DIR /brazos/roysam/datasets/TBI/G2_Sham_Trained/G2_BR#22_HC_13L \
+   --INPUT_DIR /path/to/input/dir \
+   --OUTPUT_DIR /path/to/output/dir \
    --MODE supervised \
-   --SCRIPT scripts/20_plex.csv
+   --SCRIPT /path/to/script.csv
 ```
 
 ```bash
 python main_reconstruction.py \
-   --INPUT_DIR /brazos/roysam/datasets/TBI/G2_Sham_Trained/G2_BR#22_HC_13L/original \
-   --OUTPUT_DIR /brazos/roysam/datasets/TBI/G2_Sham_Trained/G2_BR#22_HC_13L \
+   --INPUT_DIR /path/to/input/dir \
+   --OUTPUT_DIR /path/to/output/dir \
    --MODE unsupervised \
    --DEFAULT_BOX 34000 8000 44000 15000 \
    --BRIGHTFIELD 11
@@ -303,3 +310,19 @@ The run time for each module is:
 - PHENOTYPING: 1 hour
 - MORPHOLOGICAL MASKING: 4 hours
 
+## Reference
+
+If you found this implementation useful in your work, please cite the paper:
+
+```
+@article{maric2021whole,
+  title={Whole-brain tissue mapping toolkit using large-scale highly multiplexed immunofluorescence imaging and deep neural networks},
+  author={Maric, Dragan and Jahanipour, Jahandar and Li, Xiaoyang Rebecca and Singh, Aditi and Mobiny, Aryan and Van Nguyen, Hien and Sedlock, Andrea and Grama, Kedar and Roysam, Badrinath},
+  journal={Nature communications},
+  volume={12},
+  number={1},
+  pages={1--12},
+  year={2021},
+  publisher={Nature Publishing Group}
+}
+```
