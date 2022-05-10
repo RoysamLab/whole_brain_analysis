@@ -281,6 +281,10 @@ class DataLoader(object):
         if 'xmls' not in dir_list:
             os.mkdir(os.path.join(save_folder, 'xmls'))
 
+        if adjust_hist:
+            if 'adjusted_imgs' not in dir_list:
+                os.mkdir(os.path.join(save_folder, 'adjusted_imgs'))
+
         crop_gen = self.next_crop(crop_width=crop_width, crop_height=crop_height, crop_overlap=crop_overlap)
         idx = 1
         while True:
@@ -296,12 +300,8 @@ class DataLoader(object):
 
             # save image and xml:
             filename = '{:05d}_{:05d}'.format(j, i)  # save name as x_y format of top left corner of crop
-            if adjust_hist:
-                # for 16bit images only.
-                # TODO: general form for all types
-                crop_image = exposure.rescale_intensity((crop_image // 256).astype('uint8'),
-                                                        in_range='image', out_range='dtype')
-            # save to folder
+
+            # write image
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
                 skimage.io.imsave(os.path.join(save_folder, 'imgs', filename + '.jpeg'),
@@ -313,6 +313,22 @@ class DataLoader(object):
             write_xml(os.path.join(save_folder, 'xmls', filename + '.xml'), corner=[j, i],
                       bboxes=crop_bbxs, labels=labels, truncated=truncated,
                       image_size=[crop_width, crop_height, self.channel])
+
+            # if adjusted requested
+            if adjust_hist:
+                # for 16bit images
+                if crop_image.dtype == np.uint16:
+                    crop_image_adj = exposure.rescale_intensity((crop_image // 256).astype('uint8'),
+                                                            in_range='image', out_range='dtype')
+                # for 8bit images
+                elif crop_image.dtype == np.uint8:
+                    crop_image_adj = exposure.rescale_intensity(crop_image, in_range='image', out_range='dtype')
+
+                # save to folder
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore")
+                    skimage.io.imsave(os.path.join(save_folder, 'adjusted_imgs', filename + '.jpeg'),
+                                      np.squeeze(crop_image_adj))  # save the image
 
             # visualize_bbxs(crop_image, bbxs=crop_bbxs, centers=crop_centers)
             idx += 1
