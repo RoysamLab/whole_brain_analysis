@@ -1,5 +1,8 @@
 import os
 import sys
+import cv2
+
+
 sys.path.append('lib')
 sys.path.append('lib/slim')
 
@@ -143,13 +146,15 @@ class JNet(object):
 
                 # crop augmentation
                 if self.conf.crop_augmentation == 'rot90':
-                    out_aug = self.safe_run(sess, feed_dict={self.input: tf.image.rot90(batch_x).eval()},
+                    batch_x_rotated = np.array([cv2.rotate(img, cv2.ROTATE_90_CLOCKWISE) for img in batch_x])
+                    out_aug = self.safe_run(sess, feed_dict={self.input: batch_x_rotated},
                                                  output_tensor=self.outputs)
                     out_aug['detection_boxes'][:, :, [0, 2]] = np.subtract(1, out_aug['detection_boxes'][:, :, [0, 2]])
                     out_aug['detection_boxes'] = out_aug['detection_boxes'][:, :, [1, 0, 3, 2]]
 
                 elif self.conf.crop_augmentation == 'flip_left_right':
-                    out_aug = self.safe_run(sess, feed_dict={self.input: tf.image.flip_left_right(batch_x).eval()},
+                    batch_x_flipped = np.array([cv2.flip(img, 1) for img in batch_x])
+                    out_aug = self.safe_run(sess, feed_dict={self.input: batch_x_flipped},
                                             output_tensor=self.outputs)
                     out_aug['detection_boxes'][:, :, [1, 3]] = np.subtract(1, out_aug['detection_boxes'][:, :, [1, 3]])
 
@@ -168,6 +173,7 @@ class JNet(object):
                     out_dict = out_org
 
                 for i in range(self.batch_size):
+
                     keep_boxes = out_dict["detection_scores"][i, :] > self.conf.score_threshold
 
                     if not np.any(keep_boxes):
@@ -176,13 +182,21 @@ class JNet(object):
                     box = out_dict["detection_boxes"][i, :][keep_boxes]
                     score = out_dict["detection_scores"][i, :][keep_boxes]
 
+                    # non-max-suppression
+                    if box.shape[0] > 1:       # for batches with more than 1 bounding box
+                        # idx = tf.image.non_max_suppression(np.array(box), score, len(box), iou_threshold=iou_thresh).eval()
+                        # idx = sess.run(tf.image.non_max_suppression(np.array(box), score, len(box), iou_threshold=iou_thresh))
+                        idx = data.nms(box, score, self.conf.nms_iou)
+                        box = box[idx, :]
+                        score = score[idx]
+
                     box = box[:, [1, 0, 3, 2]]      # reformat to: xmin, ymin, xmax, ymax
                     # rescale from [0-1] to the crop size
                     box[:, [0, 2]] = box[:, [0, 2]] * data.width
                     box[:, [1, 3]] = box[:, [1, 3]] * data.height
 
                     # remove very large bounding boxes
-                    idx = np.where((box[:, 2] - box[:, 0] < 100) | (box[:, 3] - box[:, 1] < 100), True, False)
+                    idx = np.where((box[:, 2] - box[:, 0] < 100) & (box[:, 3] - box[:, 1] < 100), True, False)
                     box = box[idx, :]
                     score = score[idx]
                     if not np.any(idx):    # if no bounding box after removing large ones
@@ -197,13 +211,6 @@ class JNet(object):
                     score = score[idx]
                     if not np.any(idx):     # if no bounding box after removing edge ones
                         continue
-
-                    #TODO: tensorflow version is slow... come up with alternative
-                    # # non-max-suppression
-                    # idx = tf.image.non_max_suppression(np.array(box), score, len(box), iou_threshold=0.5).eval()
-                    # box = box[idx, :]
-                    # score = score[idx]
-
 
                     # from skimage import exposure
                     # show_image = exposure.rescale_intensity((batch_x[i, :, :, :]).astype('uint8'), in_range='image', out_range='dtype')
@@ -225,7 +232,7 @@ class JNet(object):
         data.bbxs = data.bbxs[keep_idx, :]
         data.scores = data.scores[keep_idx]
 
-        keep_idx = data.nms(data.bbxs, overlapThresh=self.conf.nms_iou)
+        keep_idx = data.nms(data.bbxs, data.scores, overlapThresh=self.conf.nms_iou)
         data.bbxs = data.bbxs[keep_idx, :]
         data.scores = data.scores[keep_idx]
 
