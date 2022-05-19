@@ -388,8 +388,8 @@ class DataLoader(object):
         output_dir = os.path.dirname(save_fname)
         bbxs_image(os.path.join(output_dir, 'bbxs_detection_corrected.tif'), self.bbxs, self.image.shape[:2][::-1])
         center_image(os.path.join(output_dir, 'centers_detection_corrected.tif'), self.centers, self.image.shape[:2][::-1])
-        print('{} updated with new objects in {}'.format(xml_dir))
-        print('new bbxs saved in {}'.format(os.path.join(save_fname)))
+        print('{} updated with new objects in {}'.format(self.config.bbxs_file, xml_dir))
+        print('new bbxs saved in {}'.format(save_fname))
 
     def generate_new_table_from_xmls(self, xml_dir, save_fname):
         '''
