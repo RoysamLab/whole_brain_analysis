@@ -252,7 +252,10 @@ class JNet(object):
 
         tf.logging.set_verbosity(tf.logging.INFO)
 
-        config = tf.estimator.RunConfig(model_dir=self.conf.model_dir)
+
+        session_config = tf.ConfigProto()
+        session_config.gpu_options.allow_growth = True
+        config = tf.estimator.RunConfig(model_dir=self.conf.model_dir, session_config=session_config)
 
         train_and_eval_dict = model_lib.create_estimator_and_inputs(
             run_config=config,
