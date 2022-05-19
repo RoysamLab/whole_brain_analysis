@@ -1,9 +1,10 @@
+import warnings
+warnings.simplefilter(action='ignore', category=FutureWarning)
+
 import tensorflow as tf
 from config import args
 from model import JNet
 from DataLoader import DataLoader
-
-from lib.image_uitls import bbxs_image
 
 
 def main(_):
@@ -26,11 +27,13 @@ def main(_):
         elif args.mode == 'write_crops':
             data.write_crops(args.save_folder, args.crop_width, args.crop_height, args.crop_overlap,
                              adjust_hist=args.adjust_hist)
-            # bbxs_image('data/test/whole/old_bbxs.tif', data.bbxs, data.image.shape[:2][::-1])
 
         elif args.mode == 'update_xmls':
-            data.update_xmls(xml_dir=args.xmls_dir, save_fname=args.new_bbxs)
-            # bbxs_image('data/test/whole/new_bbxs.tif', data.bbxs, data.image.shape[:2][::-1])
+            if args.xml_mode == 'update':
+                data.update_xmls(xml_dir=args.xmls_dir, save_fname=args.new_bbxs)
+            elif args.xml_mode == 'new':
+                data.generate_new_table_from_xmls(xml_dir=args.xmls_dir, save_fname=args.new_bbxs)
+
 
 if __name__ == '__main__':
     # configure which gpu or cpu to use

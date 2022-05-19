@@ -382,13 +382,53 @@ class DataLoader(object):
         self.bbxs = np.vstack([self._bbxs, to_be_added])
         self.bbxs = np.unique(self._bbxs, axis=0)
 
-        self.save_bbxs(os.path.join(self.config.input_dir, save_fname))
+        self.save_bbxs(save_fname)
 
         from lib.image_uitls import bbxs_image, center_image
-        bbxs_image(os.path.join(self.config.input_dir, 'updated_bbxs.tif'), self.bbxs, self.image.shape[:2][::-1])
-        center_image(os.path.join(self.config.input_dir, 'centers_validation.tif'), self.centers, self.image.shape[:2][::-1])
-        print('{} updated with new objects in {}'.format(self.config.bbxs_file, xml_dir))
-        print('new bbxs saved in {}'.format(os.path.join(self.config.input_dir, save_fname)))
+        output_dir = os.path.dirname(save_fname)
+        bbxs_image(os.path.join(output_dir, 'bbxs_detection_corrected.tif'), self.bbxs, self.image.shape[:2][::-1])
+        center_image(os.path.join(output_dir, 'centers_detection_corrected.tif'), self.centers, self.image.shape[:2][::-1])
+        print('{} updated with new objects in {}'.format(xml_dir))
+        print('new bbxs saved in {}'.format(os.path.join(save_fname)))
+
+    def generate_new_table_from_xmls(self, xml_dir, save_fname):
+        '''
+        :param xml_dir: path to the folder containing xml files
+        :param save_fname: save new bbxs to txt file
+        :return:
+        '''
+
+        boxes = []
+
+        for filename in os.listdir(xml_dir):
+
+            # read file
+            tree = ET.parse(os.path.join(xml_dir, filename))
+            #TODO: check [::-1] for old crops...
+            corner = list(map(int, os.path.basename(filename).split('.')[0].split('_')))
+
+            # extract bbxs from xml file
+            for i, Obj in enumerate(tree.findall('object')):  # take the current animal
+                bndbox = Obj.find('bndbox')
+                box = np.array([int(bndbox.find('xmin').text),
+                                int(bndbox.find('ymin').text),
+                                int(bndbox.find('xmax').text),
+                                int(bndbox.find('ymax').text)])
+
+                # if box was inside the crop (not close to the edge) to be added to self.bbxs
+                crop_box = box + np.array([corner[0], corner[1], corner[0], corner[1]])
+                boxes.append(crop_box)
+
+        # create numpy array from the list and save
+        self.bbxs = np.unique(np.array(boxes), axis=0)
+        self.save_bbxs(save_fname)
+
+        from lib.image_uitls import bbxs_image, center_image
+        output_dir = os.path.dirname(save_fname)
+        bbxs_image(os.path.join(output_dir, 'bbxs_detection_corrected.tif'), self.bbxs, self.image.shape[:2][::-1])
+        center_image(os.path.join(output_dir, 'centers_detection_corrected.tif'), self.centers, self.image.shape[:2][::-1])
+        print('{} updated with new objects in {}'.format(xml_dir))
+        print('new bbxs saved in {}'.format(os.path.join(save_fname)))
 
     def randomize(self):
         """ Randomizes the order of data samples and their corresponding labels"""
