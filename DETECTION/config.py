@@ -25,11 +25,11 @@ parser.add_argument('--close_centers_r', type=int, default=5, help='Minimum dist
 # data
 parser.add_argument('--input_dir', type=str, default='', help='Path to the directory of input data')
 parser.add_argument('--output_dir', type=str, default='', help='Path to the directory to save results')
-parser.add_argument('--channel', type=int, default=2, help='Network input channel size')
+parser.add_argument('--channel', type=int, default=0, help='Network input channel size')
 parser.add_argument('--c1', type=str, default='DAPI.tif', help='image 1 path')
 parser.add_argument('--c2', type=str, default='HISTONES.tif', help='image 2 path')
 parser.add_argument('--c3', type=str, default=None, help='image 3 path')
-parser.add_argument('--bbxs_file', type=str, default='', help='txt file name of bounding boxes')
+parser.add_argument('--bbxs_file', type=str, default=None, help='txt file name of bounding boxes')
 parser.add_argument('--centers_file', type=str, default=None, help='txt file name of centers')
 parser.add_argument('--height', type=int, default=300, help='Network input height size - crop large image with this height')
 parser.add_argument('--width', type=int, default=300, help='Network input width size - crop large image with this height')
