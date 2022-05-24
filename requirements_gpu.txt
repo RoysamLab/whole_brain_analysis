@@ -2,7 +2,7 @@
 pandas
 scikit-image==0.16.1
 scikit-learn
-tensorflow-gpu==1.9.0
+tensorflow-gpu==2.6.4
 cython
 
 progressbar2
