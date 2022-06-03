@@ -92,13 +92,21 @@ def main(input_dir, bbxs_file, channel_names, output_dir, margin=5, crop_size=(5
     bbxs = bbxs_table[['xmin', 'ymin', 'xmax', 'ymax']].values
 
     # get images
-    image_size = io.imread_collection(os.path.join(input_dir, biomarkers['DAPI']), plugin='tifffile')[0].shape
-    images = np.zeros((image_size[0], image_size[1], len(biomarkers)), dtype=np.uint16)
+    image_info = io.imread_collection(os.path.join(input_dir, biomarkers['DAPI']), plugin='tifffile')[0]
+    images = np.zeros((image_info.shape[0], image_info.shape[1], len(biomarkers)), dtype=np.float)
 
     # for each biomarker read the image and replace the black image if the channel is defined
     for i, bioM in enumerate(biomarkers.keys()):
         if biomarkers[bioM] != "":
-            images[:, :, i] = io.imread(os.path.join(input_dir, biomarkers[bioM]))
+            images[:, :, i] = io.imread(os.path.join(input_dir, biomarkers[bioM])).astype(np.float)
+
+    # normalize between 0-1
+    if image_info.dtype == np.uint8:
+        images /= 255.
+    elif image_info.dtype == np.uint16:
+        images /= 65535.
+    else:
+        Exception('images are not 8bit or 16bit')
 
     # Generate dataset
     X = [get_crop(images, bbx, margin=margin) for bbx in bbxs]
@@ -140,7 +148,7 @@ def main(input_dir, bbxs_file, channel_names, output_dir, margin=5, crop_size=(5
         f.create_dataset('X_test', data=X_test)
         f.create_dataset('Y_test', data=Y_test)
         f.create_dataset('bbxs', data=bbxs_table)
-        f.create_dataset('image_size', data=image_size[::-1])
+        f.create_dataset('image_size', data=image_info.shape[::-1])
         f.create_dataset('biomarkers', data=[x.encode('UTF8') for x in biomarkers])
 
 
