@@ -90,15 +90,22 @@ def main(input_dir, bbxs_file, channel_names, output_dir, inside_box=[8000, 4000
     bbxs = bbxs[permutation, :]
 
     # get images
-    image_size = io.imread_collection(os.path.join(input_dir, biomarkers['DAPI']), plugin='tifffile')[0].shape
-    images = np.zeros((image_size[0], image_size[1], len(biomarkers)), dtype=np.uint16)
+    image_info = io.imread_collection(os.path.join(input_dir, biomarkers['DAPI']), plugin='tifffile')[0]
+    images = np.zeros((image_info.shape[0], image_info.shape[1], len(biomarkers)), dtype=np.float)
 
     # for each biomarker read the image and replace the black image if the channel is defined
     for i, bioM in enumerate(biomarkers.keys()):
         if biomarkers[bioM] != "":
-            images[:, :, i] = io.imread(os.path.join(input_dir, biomarkers[bioM]))
+            images[:, :, i] = io.imread(os.path.join(input_dir, biomarkers[bioM])).astype(np.float)
 
-    # from utils import bbxs_image
+    # normalize between 0-1
+    if image_info.dtype == np.uint8:
+        images /= 255.
+    elif image_info.dtype == np.uint16:
+        images /= 65535.
+    else:
+        Exception('images are not 8bit or 16bit')
+
     # bbxs_image('all.tif', bbxs, images[:, :, 0].shape[::-1])
 
     # crop image (with extra margin) to get each sample (cell)
@@ -107,22 +114,28 @@ def main(input_dir, bbxs_file, channel_names, output_dir, inside_box=[8000, 4000
 
     ################### GENERATE LABELS ###############################
     # calculate the intensity of each channel
-    intensities = np.array([np.mean(get_crop(images, bbx), axis=(0, 1)) for bbx in bbxs])
+    get_inside_margin = -10       # get inside of bounding box for more accurate label
+    intensities = np.array([np.mean(get_crop(images, bbx, margin=get_inside_margin), axis=(0, 1)) for bbx in bbxs])
     intensities = intensities[:, 2:]  # we don't need DAPI and Histones for classification
     # find top N cells with highest intensity
     top_cells_each = [(-intensities[:, i]).argsort()[:topN] for i in range(intensities.shape[1])]
     top_cells = np.unique(np.array(top_cells_each).flatten())
 
+    # update bounding boxes to keep the desired cells
+    bbxs = bbxs[top_cells, :]
+
+    # get the labels
     intensities = intensities[top_cells, :]
     labels = (intensities == intensities.max(axis=1)[:, None]).astype(int)
 
-    # Check how many samples in each class
+    # Check samples of each class and how many samples in each class
+    # from utils import bbxs_image
     # for i, bioM in zip(range(labels.shape[1]), list(biomarkers.keys())[2:]):
+    #     bioM_bbxs = bbxs[np.where(labels[:, i] == 1), :].squeeze()
+    #     bbxs_image(os.path.join(output_dir, bioM + '.tif'), bioM_bbxs, images[:, :, 0].shape[::-1])
     #     print('{}: {}'.format(bioM, np.sum(labels[:, i], axis=0)))
 
     ################### GENERATE IMAGES ###############################
-    # update bounding boxes to keep the desired cells
-    bbxs = bbxs[top_cells, :]
     # get the crops
     cells = [get_crop(images, bbx, margin=margin) for bbx in bbxs]
     # del images
@@ -193,7 +206,7 @@ if __name__ == '__main__':
 
     start = time.time()
     main(args.INPUT_DIR, args.BBXS_FILE, [args.DAPI, args.HISTONES, args.NEUN, args.S100, args.OLIG2, args.IBA1, args.RECA1],
-         args.OUTPUT_DIR, inside_box=[8000, 4000, 34000, 24000], parallel=True, margin=5, crop_size=(50, 50), topN=5000)
+         args.OUTPUT_DIR, inside_box=[4000, 6000, 19000, 21000], parallel=True, margin=5, crop_size=(50, 50), topN=5000)
     print('*' * 50)
     print('*' * 50)
     duration = time.time() - start
