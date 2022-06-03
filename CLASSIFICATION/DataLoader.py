@@ -76,7 +76,7 @@ class BrainLoader(object):
             x = (x - self.mean) / self.std
         elif normalize == 'unity_based':
             x /= 65535.
-        x = x.reshape((-1, self.cfg.height, self.cfg.width, self.cfg.channel)).astype(np.float32)
+        x = x.reshape((-1, self.cfg.height, self.cfg.width, self.cfg.channel))
         if one_hot:
             y = (np.arange(self.cfg.num_cls) == y[:, None]).astype(np.float32)
         return x, y
