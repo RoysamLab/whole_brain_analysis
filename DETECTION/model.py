@@ -137,6 +137,10 @@ class JNet(object):
                 except StopIteration:
                     iterate = False
 
+                # skip empty crops
+                if np.max(batch_x) == 0:
+                    continue
+
                 # temp (for 16 bit image)
                 #TODO: check dtype
                 if data.image.dtype == 'uint16':
@@ -190,7 +194,14 @@ class JNet(object):
                         box = box[idx, :]
                         score = score[idx]
 
-                    box = box[:, [1, 0, 3, 2]]      # reformat to: xmin, ymin, xmax, ymax
+                    # if only one box after nms (1d array), make it 2d array
+                    if box.ndim == 1:
+                        box = np.expand_dims(box, axis=0)
+                        score = np.expand_dims(score, axis=0)
+
+                    # rearrange boxes to [xmin, ymin, xmax, ymax]
+                    box = box[:, [1, 0, 3, 2]]
+
                     # rescale from [0-1] to the crop size
                     box[:, [0, 2]] = box[:, [0, 2]] * data.width
                     box[:, [1, 3]] = box[:, [1, 3]] * data.height
