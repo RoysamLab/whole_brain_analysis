@@ -4,16 +4,27 @@ import sys
 import time
 import argparse
 import warnings
-import tifffile
 import progressbar
 import numpy as np
 import pandas as pd
 from scipy import optimize
 from shutil import copyfile
-from skimage.exposure import rescale_intensity, is_low_contrast
 from scipy import linalg as LA
 from sklearn import linear_model
+from tifffile import TiffFile, imread, imwrite
 from skimage import img_as_float, img_as_uint, img_as_ubyte
+from skimage.exposure import rescale_intensity, is_low_contrast
+
+
+def get_colormap(image_filename):
+    with TiffFile(image_filename) as tif:
+        page = tif.pages[0]
+        colormap = None
+        for tag in page.tags:
+            if tag.name == 'ColorMap':
+                colormap = tag.value
+
+    return colormap
 
 
 def imadjust(image, levels=None):
@@ -125,7 +136,7 @@ def inter_channel_correct_supervised(input_dir, output_dir, script_file):
             # read source roi
             # TODO: fix memmap bug with offset is None
             # src_roi = tifffile.memmap(os.path.join(input_dir, src_name))
-            src_roi = tifffile.imread(os.path.join(input_dir, src_name))[ymin:ymax, xmin:xmax]
+            src_roi = imread(os.path.join(input_dir, src_name))[ymin:ymax, xmin:xmax]
 
             # TODO: extend the noise channels to variable (not 3)
             # read noise rois
@@ -135,14 +146,14 @@ def inter_channel_correct_supervised(input_dir, output_dir, script_file):
                 if channel_name == channel_name:  # is not NaN
                     # TODO: fix memmap bug with offset is None
                     # n_rois[:, :, i] = tifffile.memmap(os.path.join(input_dir, channel_name))[ymin:ymax, xmin:xmax]
-                    n_rois[:, :, i] = tifffile.imread(os.path.join(input_dir, channel_name))[ymin:ymax, xmin:xmax]
+                    n_rois[:, :, i] = imread(os.path.join(input_dir, channel_name))[ymin:ymax, xmin:xmax]
 
             # calculate unmixing parameters
             alphas = calculate_unmixing_params_supervised(src_roi, n_rois)
             n_rois = []  # free memory for noise rois
 
             # read source image and remove artifacts by zeroing pixels brighter than the brightest pixel in ROI
-            source = tifffile.imread(os.path.join(input_dir, src_name))
+            source = imread(os.path.join(input_dir, src_name))
             img_type = source.dtype
 
             # TODO: disable temporary -> come up with solid approach
@@ -155,7 +166,7 @@ def inter_channel_correct_supervised(input_dir, output_dir, script_file):
             for i in range(3):
                 channel_name = src_info['channel {}'.format(i + 1)]
                 if channel_name == channel_name:
-                    noise = img_as_float(tifffile.imread(os.path.join(input_dir, channel_name)))
+                    noise = img_as_float(imread(os.path.join(input_dir, channel_name)))
                     source -= (alphas[i] * noise)
 
             source[source < 0] = 0
@@ -195,13 +206,14 @@ def inter_channel_correct_supervised(input_dir, output_dir, script_file):
                     continue
                 # if level for channel apply image adjust based on Photoshop level
                 else:
-                    source = tifffile.imread(os.path.join(input_dir, src_name))
+                    source = imread(os.path.join(input_dir, src_name))
                     levels = list(map(int, src_info['level'].split(',')))
                     source = imadjust(source, levels=levels)
 
         # save image
         save_name = os.path.join(output_dir, src_name)
-        tifffile.imsave(save_name, source, bigtiff=True)
+        colormap = get_colormap(os.path.join(input_dir, src_name))
+        imwrite(save_name, source, bigtiff=True, colormap=colormap)
 
 
 def inter_channel_correct_unsupervised(input_dir, output_dir, script_file):
@@ -233,12 +245,12 @@ def inter_channel_correct_unsupervised(input_dir, output_dir, script_file):
         # read ROIs
         # TODO: fix memmap bug with offset is None
         # temp = tifffile.memmap(os.path.join(input_dir, round_files[1]))[ymin:ymax, xmin:xmax]
-        temp = tifffile.imread(os.path.join(input_dir, round_files[1]))[ymin:ymax, xmin:xmax]
+        temp = imread(os.path.join(input_dir, round_files[1]))[ymin:ymax, xmin:xmax]
         rois = np.zeros((temp.shape[0], temp.shape[1], len(round_files)), dtype=temp.dtype)
         for i, filename in enumerate(round_files):
             # TODO: fix memmap bug with offset is None
             # rois[:, :, i] = tifffile.memmap(os.path.join(input_dir, filename))[ymin:ymax, xmin:xmax]
-            rois[:, :, i] = tifffile.imread(os.path.join(input_dir, filename))[ymin:ymax, xmin:xmax]
+            rois[:, :, i] = imread(os.path.join(input_dir, filename))[ymin:ymax, xmin:xmax]
 
         # calculate unmixing parameters using LASSO
         alphas = calculate_unmixing_params_unsupervised(rois)
@@ -254,14 +266,14 @@ def inter_channel_correct_unsupervised(input_dir, output_dir, script_file):
         for filename, channels, values in zip(round_files, channel_names, channel_values):
 
             # read source image
-            source = tifffile.imread(os.path.join(input_dir, filename))
+            source = imread(os.path.join(input_dir, filename))
             img_type = source.dtype
             source = img_as_float(source)  # convert to float for subtraction
 
             for i in range(len(values)):
                 channel_name = channels[i]
                 if channel_name == channel_name:
-                    noise = img_as_float(tifffile.imread(os.path.join(input_dir, channel_name)))
+                    noise = img_as_float(imread(os.path.join(input_dir, channel_name)))
                     source -= (values[i] * noise)
 
             source[source < 0] = 0
@@ -285,7 +297,8 @@ def inter_channel_correct_unsupervised(input_dir, output_dir, script_file):
 
             # save image
             save_name = os.path.join(output_dir, filename)
-            tifffile.imsave(save_name, source, bigtiff=True)
+            colormap = get_colormap(os.path.join(input_dir, filename))
+            imwrite(save_name, source, bigtiff=True, colormap=colormap)
 
 
 if __name__ == '__main__':

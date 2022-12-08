@@ -6,9 +6,19 @@ import progressbar
 import numpy as np
 import pandas as pd
 from shutil import copyfile
-from skimage.io import imread, imsave
+from tifffile import TiffFile, imread, imwrite
 from skimage import exposure
 
+
+def get_colormap(image_filename):
+    with TiffFile(image_filename) as tif:
+        page = tif.pages[0]
+        colormap = None
+        for tag in page.tags:
+            if tag.name == 'ColorMap':
+                colormap = tag.value
+
+    return colormap
 
 
 def rescale_histogram(image):
@@ -52,7 +62,10 @@ def intra_channel_correct(input_dir, output_dir, disk_size, script_file=None, br
     bar = progressbar.ProgressBar(max_value=len(files))
     for idx, file in enumerate(files):
         # read the image
-        im = imread(os.path.join(input_dir, file), plugin='tifffile')
+        im = imread(os.path.join(input_dir, file))
+
+        # get colormap
+        colormap = get_colormap(os.path.join(input_dir, file))
 
         # create a background array similar to original image
         background = np.copy(im)
@@ -68,7 +81,7 @@ def intra_channel_correct(input_dir, output_dir, disk_size, script_file=None, br
         im_normalized = rescale_histogram(im)
 
         # save processed image to the disk
-        imsave(os.path.join(output_dir, file), im_normalized, check_contrast=False, plugin='tifffile', bigtiff=True)
+        imwrite(os.path.join(output_dir, file), im_normalized, bigtiff=True, colormap=colormap)
         bar.update(idx)
 
 

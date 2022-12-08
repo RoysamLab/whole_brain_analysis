@@ -49,12 +49,11 @@ import shutil
 import skimage,cv2
 from skimage.color import rgb2gray
 from skimage.feature import ORB, match_descriptors
-from skimage import exposure,io,segmentation,img_as_ubyte,img_as_uint,measure,morphology   
+from skimage import exposure,segmentation,img_as_ubyte,img_as_uint,measure,morphology   
 from skimage.transform import warp, ProjectiveTransform, SimilarityTransform, AffineTransform,PolynomialTransform,resize
 from skimage.filters import threshold_otsu
 
 import matplotlib.pyplot as plt
-from skimage.external import tifffile as tiff
 from multiprocessing.pool import ThreadPool
 import warnings
 warnings.filterwarnings("ignore")
@@ -64,6 +63,18 @@ from sklearn.neighbors import DistanceMetric
 import tiled_mp_fcts as tiled_fcts
 import vis_fcts as vis_fcts
 from ransac_tile import ransac_tile
+
+from tifffile import TiffFile, imwrite
+
+def get_colormap(image_filename):
+    with TiffFile(image_filename) as tif:
+        page = tif.pages[0]
+        colormap = None
+        for tag in page.tags:
+            if tag.name == 'ColorMap':
+                colormap = tag.value
+
+    return colormap
 
 class Paras(object):
     def __init__(self):
@@ -214,16 +225,16 @@ def registrationORB_tiled(targets, sources, paras, output_dir,
     # READING IMAGES
     for key_id, t_key in enumerate( sorted ( targets.keys() )) :                
         if key_id == 0:
-            with tiff.TiffFile(targets[t_key]) as tif:
-                target0 = tif.asarray(memmap=True)
+            with TiffFile(targets[t_key]) as tif:
+                target0 = tif.asarray()
             input_type = target0.dtype
             target0 = rgb2gray(target0) if target0.ndim == 3 else target0
             # print("Process ", t_key, " as target0", "target0.shape = ", target0.shape)
             target0_key = t_key
     for key_id, s_key in enumerate( sorted ( sources.keys() )) :
         if key_id == 0:
-            with tiff.TiffFile(sources[s_key]) as tif:
-                source0 = tif.asarray(memmap=True)            
+            with TiffFile(sources[s_key]) as tif:
+                source0 = tif.asarray()            
             source0 = rgb2gray(source0) if source0.ndim == 3 else source0
             # print("Process ", s_key, " as source0", "source0.shape =", source0.shape)
             source0_key = s_key
@@ -395,8 +406,8 @@ def registrationORB_tiled(targets, sources, paras, output_dir,
         del keypoints0, descriptors0
 
     for s_i, source_key in enumerate( sorted ( sources.keys() )) :
-        with tiff.TiffFile(sources[source_key]) as tif:
-            source = tif.asarray(memmap=True)              
+        with TiffFile(sources[source_key]) as tif:
+            source = tif.asarray()     
         source = rgb2gray(source) if source.ndim == 3 else source               # uint16
         
         source = vis_fcts.check_shape(source,paras.target_shape)                # make sure the source image is the same size to target      
@@ -435,7 +446,7 @@ def registrationORB_tiled(targets, sources, paras, output_dir,
                 vis_diff =  vis_fcts.differenceVis (inital_diff ,dst, inliers, bsBoost_tileRange_ls, diff_label_final )                        
                 print (" Before : error:",error)      
                 vis_diff_resized = cv2.resize(img_as_ubyte(vis_diff), (vis_diff.shape[0]  // 2 , vis_diff.shape[1] // 2))
-                io.imsave(os.path.join(output_dir, source_key.split(".")[0] + "-BeforeErr"+ '%.1f'%error+"%_diffVis.jpg"),
+                imwrite(os.path.join(output_dir, source_key.split(".")[0] + "-BeforeErr"+ '%.1f'%error+"%_diffVis.jpg"),
                             vis_diff_resized )        
 #         else:
 #             del inliers
@@ -500,15 +511,17 @@ def registrationORB_tiled(targets, sources, paras, output_dir,
 
         ### save source
         output_type = input_type
+        colormap = get_colormap(sources[source_key])     # get the colormap if exist, otherwise None
         assert len( np.unique( source_warped ) ) > 1     # make sure the wrapped is not empty
 
         if input_type == np.uint8 or paras.demo:
             print("\tsaving image as 8 bit")
-            tiff.imsave(os.path.join(output_dir, source_key),
-                        np.clip(source_warped*255,0,255).astype( input_type) )  
+            imwrite(os.path.join(output_dir, source_key),
+                    np.clip(source_warped*255,0,255).astype( input_type),
+                    colormap=colormap)  
         else:  # output_type is "16bit":
             print("\tsaving image as 16bit")
-            tiff.imsave(os.path.join(output_dir, source_key),
+            imwrite(os.path.join(output_dir, source_key),
                         np.clip(source_warped*65535,0,65535).astype( input_type))  
 
                  
@@ -523,7 +536,7 @@ def registrationORB_tiled(targets, sources, paras, output_dir,
                                                         img_as_ubyte(source_warped))              
             print (" After : error:",error)                    
             vis_resized = cv2.resize(img_as_ubyte(vis), (vis.shape[0] // 2, vis.shape[1] // 2))  
-            io.imsave(os.path.join(output_dir, source_key.split(".")[0] + "_registeredVis.jpg"),
+            imwrite(os.path.join(output_dir, source_key.split(".")[0] + "_registeredVis.jpg"),
                          vis_resized)
             if bootstrap == False:
                 vis_diff =  vis_fcts.differenceVis (binary_diff ,dst, inliers,
@@ -533,7 +546,7 @@ def registrationORB_tiled(targets, sources, paras, output_dir,
                                            bsBoost_tileRange_ls,diff_label_final)
                 
             vis_diff_resized = cv2.resize(img_as_ubyte(vis_diff), (vis.shape[0]  // 2 , vis.shape[1] // 2))
-            io.imsave(os.path.join(output_dir, source_key.split(".")[0] + "-Err"+ '%.1f'%error+"%_diffVis.jpg"),
+            imwrite(os.path.join(output_dir, source_key.split(".")[0] + "-Err"+ '%.1f'%error+"%_diffVis.jpg"),
                         vis_diff_resized )
         
     t_warp = time.time()
